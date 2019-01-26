@@ -244,6 +244,7 @@ void read_cb (struct bufferevent *bev, void *arg) {
                         send_file(bev, file);
                     }
                 } else {
+                    /**当前文件不存在且不是任何转发路径*/
                     memset(error_buf, '\0', strlen(error_buf));
                     sprintf(error_buf, "%s %s", file, "发生404错误");
                     write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
@@ -335,6 +336,7 @@ void event_init_listener (struct evconnlistener *listener, struct event_base *ba
         }
     }
     evconnlistener_set_error_cb(listener, accept_error_cb);
+    /**启动libevent的事件循环*/
     event_base_dispatch(base);
 }
 
@@ -385,10 +387,12 @@ void socket_serv_process () {
 
 
 void server_init (const char *json_path) {
+    /**根据json格式的配置初始化服务器配置*/
     p = init_server_config(json_path);
     if (!p) {
         exit(1);
     }
+    /**初始化log文件*/
     if (open_log_fd(p->pool, p->log_path) != 0) {
         exit(1);
     }
