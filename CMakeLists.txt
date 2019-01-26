@@ -23,4 +23,4 @@ add_executable(httpServ
         source/util/threadpool.h
         source/util/tool.c
         source/util/tool.h
-        source/main.c)
+        source/main.c source/util/dossl.c source/util/dossl.h)

@@ -13,7 +13,6 @@ int fd = -1;
 void *write_log_ (void *buf) {
     char *buf1 = (char *) buf;
     write(fd, buf, strlen(buf1));
-    free((void *) buf1);
     return NULL;
 }
 

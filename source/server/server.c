@@ -15,6 +15,8 @@
 #include "parse_json.h"
 #include <event2/thread.h>
 #include <signal.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 /*服务器全局配置*/
 server_config_package *p = NULL;
@@ -29,7 +31,7 @@ void send_500file (struct bufferevent *bev) {
 void send_404file (struct bufferevent *bev) {
     char buf[128];
     /*发送预置的404页面*/
-    sprintf(buf,p->error_page, "404.html");
+    sprintf(buf, p->error_page, "404.html");
     send_file(bev, buf);
 }
 
@@ -84,6 +86,7 @@ void send_respond_head (struct bufferevent *bev, int no, const char *desc, const
     }
     strcpy(buf + strlen(buf), "\r\n");
     bufferevent_write(bev, buf, strlen(buf));
+    SSL_write();
 }
 
 /**
@@ -278,6 +281,16 @@ void event_cb (struct bufferevent *bev, short events, void *arg) {
     bufferevent_free(bev);
 }
 
+
+
+/**
+ *
+ * @param listener
+ * @param fd   与客户端创建连接的套接字
+ * @param addr
+ * @param len
+ * @param ptr
+ */
 void listener_init (
         struct evconnlistener *listener,
         evutil_socket_t fd,
