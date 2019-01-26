@@ -4,16 +4,20 @@
     "dynamic_file": [
       "/examples/servlets/"
     ],
-    "error_page": [
-      "/Users/fss/Desktop/hello/source/www/http/pages/%s"
+    "error_page": "/Users/fss/Desktop/hello/source/www/http/pages/%s",
+    "redirect_path": [
+      "/xyd/anon",
+      "/api/carousel"
     ],
-    "redirect_path": ["/xyd/anon","/api/carousel"],
-    "redirect_site": ["https://doublehh.cn","http://doublehh.cn:82"],
+    "redirect_site": [
+      "https://doublehh.cn",
+      "http://doublehh.cn:82"
+    ],
     "map_path": "/Users/fss/Desktop/hello/",
     "index": "hello.html",
     "log_path": "/Users/fss/servlog.log",
     "alternate_port": 9998,
-    "static_page": "./source/www/http/pages/static/%s",
+    "static_page": "/Users/fss/Desktop/hello/source/www/http/pages/static/%s",
     "load_balancing": 1,
     "load_servers": [
       8080,
