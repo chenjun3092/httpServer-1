@@ -7,7 +7,7 @@
 const char *jpath;
 extern server_config_package *p;
 
-
+#if 0
 int main (int argc, char *argv[]) {
     if (argc != 2) {
         fprintf(stderr, "ex: httpserv json_path");
@@ -18,3 +18,4 @@ int main (int argc, char *argv[]) {
 
     return 0;
 }
+#endif

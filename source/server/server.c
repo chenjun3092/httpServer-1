@@ -15,8 +15,6 @@
 #include "parse_json.h"
 #include <event2/thread.h>
 #include <signal.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
 
 /*服务器全局配置*/
 server_config_package *p = NULL;
