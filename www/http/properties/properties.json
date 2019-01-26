@@ -1,0 +1,24 @@
+{
+  "server": {
+    "port": 9999,
+    "dynamic_file": [
+      ".php"
+    ],
+    "tips1": "redirect_path仅针对Java项目进行进行转发，load_server是针对PHP文件的负载均衡,如下",
+    "redirect_path": ["/xyd/anon","/xyd/anon1"],
+    "tip2": "被转发Java请求的网站",
+    "redirect_site": "https://doublehh.cn",
+    "map_path": "/Users/fss/CLionProjects/httpServ/",
+    "index": "hello.html",
+    "log_path": "/Users/fss/servlog.log",
+    "alternate_port": 9998,
+    "static_page": "./www/http/pages/static/%s",
+    "load_balancing": 1,
+    "load_servers": [
+      80,
+      81,
+      82
+    ]
+  }
+}
+
