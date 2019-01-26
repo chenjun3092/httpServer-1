@@ -86,7 +86,6 @@ void send_respond_head (struct bufferevent *bev, int no, const char *desc, const
     }
     strcpy(buf + strlen(buf), "\r\n");
     bufferevent_write(bev, buf, strlen(buf));
-    SSL_write();
 }
 
 /**
