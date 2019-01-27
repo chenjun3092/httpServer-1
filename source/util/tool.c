@@ -164,6 +164,7 @@ char *parser_httphead (char *reqhead, char *head_param) {
         if (!strncmp(reqhead, head_param, strlen(head_param))) {
             /*寻找需要特定的请求头*/
             char *tmp = strchr(reqhead, ':');
+            tmp++;
             char *val = malloc(sizeof(char) * 1024);
             memset(val, '\0', 1024);
             int i = 0;

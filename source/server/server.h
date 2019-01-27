@@ -10,6 +10,16 @@
 #include <event2/listener.h>
 #include <event2/bufferevent.h>
 
+typedef struct response_struct {
+    int no;
+    long len;
+    const char *host;
+    const char *desc;
+    const char *type;
+    const char *cookie;
+    /* const char *date;
+     const char *last_modified;*/
+} response_struct;
 #define END_TABLE "</table></body></html>"
 
 void send_404file (struct bufferevent *bev);
@@ -18,11 +28,11 @@ void send_500file (struct bufferevent *bev);
 
 void send_file (struct bufferevent *bev, const char *filename);
 
-void send_respond_head (struct bufferevent *bev, int no, const char *desc, const char *type, long len, char *host);
+void send_respond_head (struct bufferevent *bev, struct response_struct resp);
 
 void send_directory (struct bufferevent *bev, const char *dirname);
 
-void send_directory_ (struct bufferevent *bev, char *file, char *host);
+void send_directory_ (struct bufferevent *bev, char *file, char *host,struct response_struct resp);
 
 void read_cb (struct bufferevent *bev, void *arg);
 
