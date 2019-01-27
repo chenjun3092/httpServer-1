@@ -167,6 +167,29 @@ void send_directory_ (struct bufferevent *bev, char *file, char *host) {
 
 }
 
+/**实现一个简单的负载均衡*/
+int select_server () {
+    srand(time(NULL));
+    return rand() % p->s_num;
+}
+
+/**
+ *
+ * @param bev
+ * @param filepath 待发送文件的目录
+ * @param host client访问的路径
+ * @param st  待发送文件的stat 结构
+ */
+void send_filedir (struct bufferevent *bev, char *filepath, char *host, struct stat st) {
+    if (S_ISDIR(st.st_mode)) {
+        send_directory_(bev, filepath, host);
+    } else if (S_ISREG(st.st_mode)) {
+        send_respond_head(bev, 200, OK, get_file_type(filepath), st.st_size, NULL);
+        send_file(bev, filepath);
+    }
+}
+
+
 /**
  * 当libevent产生读事件后服务器自定义的请求处理函数
  * @param bev
@@ -210,16 +233,14 @@ void read_cb (struct bufferevent *bev, void *arg) {
         for (i = 0; i < p->d_len; ++i) {
             /**是否是负载均衡的路径*/
             if (!strcasecmp(path, p->dynamic_file[i])) {
-                int n;
                 char *host_;
                 host_ = findiport(host, 0);
                 *host_ = '\0';
                 host_ = host;
                 /*用随机的方法选择当前提供服务的服务器*/
+                int n = 0;
                 if (p->load_balancing) {
-                    //实现一个简单的负载均衡
-                    srand(time(NULL));
-                    n = rand() % p->s_num;//负载均衡的种子
+                    n = select_server();
                 }
                 is_bloading = 1;
                 /**将请求转发到负载均衡服务器*/
@@ -237,12 +258,7 @@ void read_cb (struct bufferevent *bev, void *arg) {
                 sprintf(file, p->static_path, page);
                 /**判断当前访问的文件是否位于static目录下(一般用于重要的静态页面)*/
                 if (!stat(file, &st)) {
-                    if (S_ISDIR(st.st_mode)) {
-                        send_directory_(bev, file, host);
-                    } else if (S_ISREG(st.st_mode)) {
-                        send_respond_head(bev, 200, OK, get_file_type(file), st.st_size, NULL);
-                        send_file(bev, file);
-                    }
+                    send_filedir(bev, file, host, st);
                 } else {
                     /**当前文件不存在且不是任何转发路径*/
                     memset(error_buf, '\0', strlen(error_buf));
@@ -253,12 +269,7 @@ void read_cb (struct bufferevent *bev, void *arg) {
                 }
             } else {
                 /*访问公开目录下的文件*/
-                if (S_ISDIR(st.st_mode)) {
-                    send_directory_(bev, file, host);
-                } else if (S_ISREG(st.st_mode)) {
-                    send_respond_head(bev, 200, OK, get_file_type(file), st.st_size, NULL);
-                    send_file(bev, file);
-                }
+                send_filedir(bev, file, host, st);
             }
         }
     } while (0);
@@ -277,7 +288,6 @@ void event_cb (struct bufferevent *bev, short events, void *arg) {
     }
     bufferevent_free(bev);
 }
-
 
 
 /**
@@ -392,8 +402,6 @@ void socket_serv_process () {
     evconnlistener_free(listener);
     event_base_free(base);
 }
-
-
 
 
 void server_init (const char *json_path) {

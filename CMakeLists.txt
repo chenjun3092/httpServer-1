@@ -7,15 +7,13 @@ include_directories(source/log)
 include_directories(source/server)
 include_directories(source/util)
 include_directories(/usr/local/openssl/include/openssl/)
-LINK_LIBRARIES(event event_pthreads event_openssl)
-LINK_LIBRARIES(ssl crypto)
+LINK_LIBRARIES(event event_pthreads )
 add_executable(hello
         source/log/log.c
         source/log/log.h
         source/server/init_config.h
         source/server/server.c
         source/server/server.h
-        source/server/server_main.c
         source/util/cJSON.c
         source/util/cJSON.h
         source/util/parse_json.c
@@ -24,4 +22,4 @@ add_executable(hello
         source/util/threadpool.h
         source/util/tool.c
         source/util/tool.h
-        source/main.c source/server/https/test_https.c source/server/https/server_https.c)
+        source/main.c)
