@@ -11,15 +11,14 @@ extern server_config_package *p;
 #include <log.h>
 #include "server.h"
 
-const char *jpath;
-extern server_config_package *p;
 
 void do_restart (int signo){
     pid_t pid;
     pid = fork();
     if(!pid){
+        fprintf(stderr, "服务器重启");
+        fflush(stdout);
         server_init(jpath);
-        write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "服务器重启");
     }else {
         /*parent process*/
         signal(SIGCHLD, do_restart);
@@ -28,6 +27,19 @@ void do_restart (int signo){
 }
 
 #if 1
+int main (int argc, char *argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "ex: httpserv json_path");
+        exit(1);
+    }
+    jpath = argv[1];
+    server_init(jpath);
+}
+
+#endif
+
+
+#if 0
 
 int main (int argc, char *argv[]) {
     if (argc != 2) {

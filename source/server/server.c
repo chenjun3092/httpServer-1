@@ -68,7 +68,7 @@ void send_file (struct bufferevent *bev, const char *filename) {
 
 
 void send_respond_head (struct bufferevent *bev, int no, const char *desc, const char *type, long len, char *host) {
-    char buf[1024] = {0};
+    char buf[2048] = {0};
     /**状态行*/
     sprintf(buf, "HTTP/1.1 %d %s\r\n", no, desc);
     /**消息报头*/
@@ -82,6 +82,8 @@ void send_respond_head (struct bufferevent *bev, int no, const char *desc, const
         /**用于被转发到tomcat的JavaWeb请求*/
         sprintf(buf + strlen(buf), "Location:%s\r\n", host);
     }
+    strcpy(buf + strlen(buf), "Connection:keep-alive\r\n");
+    strcpy(buf + strlen(buf), "Server:helloServer\r\n");
     strcpy(buf + strlen(buf), "\r\n");
     bufferevent_write(bev, buf, strlen(buf));
 }
@@ -168,6 +170,10 @@ void send_directory_ (struct bufferevent *bev, char *file, char *host) {
 }
 
 /**实现一个简单的负载均衡*/
+/**
+ *
+ * @return  当前被选中的服务器编号
+ */
 int select_server () {
     srand(time(NULL));
     return rand() % p->s_num;
@@ -196,12 +202,16 @@ void send_filedir (struct bufferevent *bev, char *filepath, char *host, struct s
  * @param arg : no use
  */
 void read_cb (struct bufferevent *bev, void *arg) {
+
+    map_str_t request_head;/**用于存储已经经过解析的http请求头*/
+    map_init(&request_head);
     char request[4096] = {0};
     char error_buf[128] = {0};
     bufferevent_read(bev, request, sizeof(request));
     char page[512];
-    char method[12], path[1024], protocol[12], host[256], no_use[8];
-    sscanf(request, "%[^ ] %[^ ] %[^ \r\n] %[^ ] %[^ \r\n]", method, path, protocol, no_use, host);
+    char method[12], path[1024], protocol[12], *host;
+    sscanf(request, "%[^ ] %[^ ] %[^ \r\n] ", method, path, protocol);
+    host = get_headval(&request_head, request, "Host");
     strcpy(host + strlen(host), "/");
     decode_str(path, path);
     /**client 在服务器上实际访问的位置*/
@@ -273,6 +283,14 @@ void read_cb (struct bufferevent *bev, void *arg) {
             }
         }
     } while (0);
+    /**释放动态申请的资源*/
+    const char *key;
+    map_iter_t iter = map_iter(&m);
+    while ((key = map_next(&request_head, &iter))) {
+        char *val_d = *map_get(&request_head, key);
+        free(val_d);
+    }
+    map_deinit(&request_head);
 }
 
 
@@ -421,13 +439,6 @@ void server_init (const char *json_path) {
         exit(1);
     }
     socket_serv_process();
-
-    //fixme 退出程序的时候，线程池不写
-    /**
-     * 解决方案: 写父进程负责子进程退出时候的善后工作，但是因为这样不方便自己调试,
-     * 故暂时不开发此功能
-     */
-
     exit(0);
 }
 

@@ -5,6 +5,7 @@
 #define REG_PATH "<tr><td><a href=\"%s\">%s</a></td><td>%ld</td></tr>"
 #define DIR_CUR_NAME "<body><h1>当前目录: %s</h1><table>"
 #define OK "OK"
+#define true 1
 
 #include <event2/listener.h>
 #include <event2/bufferevent.h>

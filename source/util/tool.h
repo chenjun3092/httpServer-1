@@ -2,6 +2,8 @@
 #ifndef HTTPSERV_TOOL_H
 #define HTTPSERV_TOOL_H
 
+#include <map.h>
+
 int hexit (char c);
 
 char *findiport (char *ip_port, int c);
@@ -12,12 +14,14 @@ void decode_str (char *to, char *from);
 
 const char *get_file_type (const char *name);
 
-void write_log_file (char *content);
-
 const char *get_datetime ();
 
 int get_hour ();
 
 int get_day ();
+
+char *parser_httphead (char *reqhead, char *head_param);
+
+char *get_headval (map_str_t *m, char *request, char *param);
 
 #endif //HTTPSERV_TOOL_H

@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "map.h"
 
 char *findiport (char *ip_port, int c) {
     if (ip_port != NULL) {
@@ -153,3 +154,47 @@ int get_day () {
     int day = tm_struct.tm_yday;
     return day + 1;
 }
+
+char *parser_httphead (char *reqhead, char *head_param) {
+    while (*reqhead != '\n') {
+        reqhead++;
+    }
+    reqhead++;
+    while (1) {
+        if (!strncmp(reqhead, head_param, strlen(head_param))) {
+            /*寻找需要特定的请求头*/
+            char *tmp = strchr(reqhead, ':');
+            char *val = malloc(sizeof(char) * 1024);
+            memset(val, '\0', 1024);
+            int i = 0;
+            while (*tmp != '\r' && *tmp != '\0') {
+                tmp++;
+                val[i++] = *tmp;
+            }
+            val[i - 1] = '\0';
+            return val;
+        } else {
+            while (*reqhead != '\n' && *reqhead != '\0') {
+                reqhead++;
+            }
+            if (*reqhead == '\0') {
+                break;
+            } else {
+                reqhead++;
+            }
+        }
+    }
+    return NULL;
+}
+
+char *get_headval (map_str_t *m, char *request, char *param) {
+    char **h;
+    char *val = NULL;
+    if ((h = map_get(m, param)) != NULL) {
+        val = *h;
+    } else {
+        val = parser_httphead(request, param);
+        map_set(m, param, val);
+    }
+    return val;
+};
