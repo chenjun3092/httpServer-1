@@ -211,7 +211,20 @@ void read_cb (struct bufferevent *bev, void *arg) {
     char page[512];
     char method[12], path[1024], protocol[12], *host;
     sscanf(request, "%[^ ] %[^ ] %[^ \r\n] ", method, path, protocol);
+    /**
+     * 获取请求头中的 Host:
+     */
     host = get_headval(&request_head, request, "Host");
+    if (!host) {
+        write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "请求头解析错误");
+        exit(1);
+    }
+    char *cookie = get_headval(&request_head, request, "Cookie");
+    if (cookie) {
+        /*依据cookie选择服务的不同服务器*/
+    } else {
+
+    }
     strcpy(host + strlen(host), "/");
     decode_str(path, path);
     /**client 在服务器上实际访问的位置*/
