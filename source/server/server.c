@@ -245,7 +245,7 @@ void handle_http_request (struct bufferevent *bev) {
     if (!host) {
         write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "请求头解析错误");
         fprintf(stderr, "请求头解析错误\n");
-        fflush(stdout);
+        fflush(stderr);
         exit(1);
     }
     char *cookie = get_headval(&request_head, request, "Cookie");
@@ -385,7 +385,7 @@ void read_cb (struct bufferevent *bev, void *arg) {
 
 
 void write_cb (struct bufferevent *bev, void *arg) {
-    fflush(stdout);
+    fflush(stderr);
 }
 
 void event_cb (struct bufferevent *bev, short events, void *arg) {
@@ -416,7 +416,7 @@ void listener_init (
     bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
     if (bev == NULL) {
         fprintf(stderr, "创建监听失败\n");
-        fflush(stdout);
+        fflush(stderr);
         write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "创建监听失败，server退出");
         exit(1);
     } else {
@@ -461,7 +461,7 @@ void event_init_listener (struct evconnlistener *listener, struct event_base *ba
             write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "备用服务器端口启动成功");
         } else {
             fprintf(stderr, "备用服务器端口启动失败\n");
-            fflush(stdout);
+            fflush(stderr);
             write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "备用服务器端口启动失败");
             exit(1);
         }
@@ -518,20 +518,20 @@ void server_init (const char *json_path) {
     p = init_server_config(json_path);
     if (!p) {
         fprintf(stderr, "初始化Json配置失败\n");
-        fflush(stdout);
+        fflush(stderr);
         exit(1);
     }
     /**初始化log文件*/
     if (open_log_fd(p->pool, p->log_path) != 0) {
         fprintf(stderr, "打开log文件失败\n");
-        fflush(stdout);
+        fflush(stderr);
         exit(1);
     }
     write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "初始化服务器成功");
     int ret = chdir(p->map_path);
     if (ret) {
         fprintf(stderr, "切换工作目录失败\n");
-        fflush(stdout);
+        fflush(stderr);
         write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "切换工作目录失败");
         exit(1);
     }

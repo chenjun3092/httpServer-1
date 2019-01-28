@@ -16,8 +16,8 @@ void do_restart (int signo){
     pid_t pid;
     pid = fork();
     if(!pid){
-        fprintf(stderr, "服务器重启");
-        fflush(stdout);
+        fprintf(stderr, "服务器重启\n");
+        fflush(stderr);
         server_init(jpath);
     }else {
         /*parent process*/
