@@ -24,4 +24,8 @@ char *parser_httphead (char *reqhead, char *head_param);
 
 char *get_headval (map_str_t *m, char *request, char *param);
 
+void set_cookie (char *cookies);
+
+char *parse_cookies (char *c, char *h);
+
 #endif //HTTPSERV_TOOL_H

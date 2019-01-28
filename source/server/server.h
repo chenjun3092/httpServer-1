@@ -13,10 +13,10 @@
 typedef struct response_struct {
     int no;
     long len;
-    const char *host;
-    const char *desc;
-    const char *type;
-    const char *cookie;
+    char host[128];
+    char desc[32];
+    char type[32];
+    char cookie[256];
     /* const char *date;
      const char *last_modified;*/
 } response_struct;
@@ -32,7 +32,7 @@ void send_respond_head (struct bufferevent *bev, struct response_struct resp);
 
 void send_directory (struct bufferevent *bev, const char *dirname);
 
-void send_directory_ (struct bufferevent *bev, char *file, char *host,struct response_struct resp);
+void send_directory_ (struct bufferevent *bev, char *file, char *host, struct response_struct resp);
 
 void read_cb (struct bufferevent *bev, void *arg);
 

@@ -5,7 +5,9 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <uuid/uuid.h>
 #include "map.h"
+#include <uuid/uuid.h>
 
 char *findiport (char *ip_port, int c) {
     if (ip_port != NULL) {
@@ -148,6 +150,19 @@ int get_hour () {
     return hour;
 }
 
+void set_cookie(char *cookies){
+    uuid_t uu;
+    uuid_generate(uu);
+    memset(cookies, '\0', 128 * sizeof(char));
+    strcpy(cookies, "uid=");
+    for (int i = 0; i < 15; i++) {
+        sprintf(cookies + strlen(cookies), "%02X-", uu[i]);
+    }
+    sprintf(cookies + strlen(cookies), "%02X", uu[15]);
+    strcpy(cookies + strlen(cookies), "; path=/; Expires=Wed, 21 Oct 9999 12:59:59 GMT;");
+    uuid_clear(uu);
+}
+
 int get_day () {
     time_t t = time(NULL);
     struct tm tm_struct = *localtime(&t);
@@ -188,6 +203,35 @@ char *parser_httphead (char *reqhead, char *head_param) {
     return NULL;
 }
 
+char *parse_cookies (char *c, char *h) {
+    char *uid = malloc(sizeof(char) * 36);
+    int is_finded = 0;
+    while (1) {
+        while (*c != ';') {
+            c++;
+            if (*c == '\0') {
+                break;
+            }
+        }
+        if (*c == '\0') {
+            break;
+        } else if (*c == ';') {
+            c += 2;
+            int i = 0;
+            if (!strncmp(c, h, strlen(h))) {
+                while (*c != ';' && *c != '\0') {
+                    is_finded = 1;
+                    uid[i++] = *c;
+                    c++;
+                }
+            }
+        }
+    }
+    if (is_finded)
+        return uid;
+    else
+        return NULL;
+}
 char *get_headval (map_str_t *m, char *request, char *param) {
     char **h;
     char *val = NULL;

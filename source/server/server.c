@@ -15,13 +15,15 @@
 #include "parse_json.h"
 #include <event2/thread.h>
 #include <signal.h>
-#include <uuid/uuid.h>
 
 /*服务器全局配置*/
 server_config_package *p = NULL;
 
 void init_resp (response_struct *resp) {
-    resp->cookie = resp->type = resp->desc = resp->host = NULL;
+    memset(resp->cookie, '\0', 256);
+    memset(resp->desc, '\0', 32);
+    memset(resp->type, '\0', 32);
+    memset(resp->host, '\0', 128);
     resp->len = 0;
     resp->no = 0;
 }
@@ -91,7 +93,7 @@ void send_respond_head (struct bufferevent *bev, struct response_struct resp) {
     }
     strcpy(buf + strlen(buf), "Connection: keep-alive\r\n");
     strcpy(buf + strlen(buf), "Server: helloServer\r\n");
-    if (resp.cookie) {
+    if (strlen(resp.cookie) != 0) {
         sprintf(buf + strlen(buf), "Set-Cookie: %s\r\n", resp.cookie);
     }
     strcpy(buf + strlen(buf), "\r\n");
@@ -167,14 +169,14 @@ void send_directory_ (struct bufferevent *bev, char *file, char *host, response_
     struct response_struct resp;
 
     init_resp(&resp);
-    if (resp1.cookie != NULL) {
-        resp.cookie = resp1.cookie;
+    if (strlen(resp1.cookie) != 0) {
+        strcpy(resp.cookie, resp1.cookie);
     }
     resp.no = 301;
-    resp.type = "text/html; charset=utf-8";
+    strcpy(resp.type, "text/html; charset=utf-8");
     resp.len = -1;
-    resp.desc = "Moved Permanently";
-    resp.host = host;
+    strcpy(resp.desc, "Moved Permanently");
+    strcpy(resp.host, host);
     if (t != '/') {
         /**通过http response code 产生重定向*/
         file[len] = '/';
@@ -185,7 +187,7 @@ void send_directory_ (struct bufferevent *bev, char *file, char *host, response_
         send_respond_head(bev, resp);
     } else {
         resp.no = 200;
-        resp.desc = OK;
+        strcpy(resp.desc, OK);
         send_respond_head(bev, resp);
     }
     send_directory(bev, file);
@@ -220,6 +222,7 @@ void send_filedir (struct bufferevent *bev, char *filepath,
     }
 }
 
+
 /**
  * 处理http请求的核心函数
  * @param bev
@@ -247,34 +250,23 @@ void handle_http_request (struct bufferevent *bev) {
     /**为了应对chrome自带的cookie*/
     int is_set_cookie = 0;
     char cookies[128] = {0};
-    if (cookie && !strncmp(cookie, "__utma", strlen("__utma"))) {
-        /*依据cookie选择服务的不同服务器*/
-        uuid_t uu;
-        uuid_generate(uu);
-        memset(cookies, '\0', 128 * sizeof(char));
-        strcpy(cookies, "uid=");
-        for (int i = 0; i < 15; i++) {
-            sprintf(cookies + strlen(cookies), "%02X-", uu[i]);
+    char *u = NULL;
+    if (cookie) {
+        /*判断是否在之前设置过cookie中的uid值*/
+        if (strncmp(cookie, "uid", 3) != 0) {
+            u = parse_cookies(cookie, "uid");
+            if (!u) {
+                set_cookie(cookies);
+                is_set_cookie = 1;
+            } else {
+                /*使用原来有的cookie*/
+            }
         }
-        sprintf(cookies + strlen(cookies), "%02X", uu[15]);
-        strcpy(cookies + strlen(cookies), "; path=/");
-        is_set_cookie = 1;
-        uuid_clear(uu);
-    } else if (!cookie) {/**cookie为空的情况*/
-        uuid_t uu;
-        uuid_generate(uu);
-        memset(cookies, '\0', 128 * sizeof(char));
-        strcpy(cookies, "uid=");
-        for (int i = 0; i < 15; i++) {
-            sprintf(cookies + strlen(cookies), "%02X-", uu[i]);
-        }
-        sprintf(cookies + strlen(cookies), "%02X", uu[15]);
-        strcpy(cookies + strlen(cookies), "; path=/");
-        is_set_cookie = 1;
-        uuid_clear(uu);
     }
     if (is_set_cookie) {
-        resp.cookie = cookies;
+        strcpy(resp.cookie, cookies);
+        if (u != NULL)
+            free(u);
     }
     strcpy(host + strlen(host), "/");
     decode_str(path, path);
@@ -298,11 +290,11 @@ void handle_http_request (struct bufferevent *bev) {
                 sprintf(error_buf, "%s %s", redirect_path, "产生了302重定向");
                 write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
 
-                resp.type = "text/html; charset=utf-8";
+                strcpy(resp.type, "text/html; charset=utf-8");
                 resp.len = -1;
-                resp.host = redirect_path;
+                strcpy(resp.host, redirect_path);
                 resp.no = 302;
-                resp.desc = "Moved Permanently";
+                strcpy(resp.desc, "Moved Permanently");
                 send_respond_head(bev, resp);
             }
         }
@@ -328,10 +320,10 @@ void handle_http_request (struct bufferevent *bev) {
                 sprintf(error_buf, "%s %s", host, "产生了301重定向");
                 write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
                 resp.no = 301;
-                resp.desc = "Moved Permanently";
-                resp.host = host;
+                strcpy(resp.desc, "Moved Permanently");
+                strcpy(resp.host, host);
                 resp.len = -1;
-                resp.type = "text/html";
+                strcpy(resp.type, "text/html; charset=utf-8");
                 send_respond_head(bev, resp);
             }
         }
@@ -343,10 +335,10 @@ void handle_http_request (struct bufferevent *bev) {
                 sprintf(file, p->static_path, page);
                 /**判断当前访问的文件是否位于static目录下(一般用于重要的静态页面)*/
                 if (!stat(file, &st)) {
-                    resp.desc = OK;
+                    strcpy(resp.desc, OK);
                     resp.no = 200;
                     resp.len = st.st_size;
-                    resp.type = get_file_type(file);
+                    strcpy(resp.type, get_file_type(file));
                     send_filedir(bev, file, host, st, resp);
                 } else {
                     /**当前文件不存在且不是任何转发路径*/
@@ -355,17 +347,17 @@ void handle_http_request (struct bufferevent *bev) {
                     write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
                     resp.no = 404;
                     resp.len = -1;
-                    resp.desc = "Not Found";
-                    resp.type = "text/html; charset=utf-8";
+                    strcpy(resp.desc, "Not Found");
+                    strcpy(resp.type, "text/html; charset=utf-8");
                     send_respond_head(bev, resp);
                     send_404file(bev);
                 }
             } else {
                 /*访问公开目录下的文件*/
-                resp.desc = OK;
+                strcpy(resp.desc, OK);
                 resp.no = 200;
                 resp.len = st.st_size;
-                resp.type = get_file_type(file);
+                strcpy(resp.type, get_file_type(file));
                 send_filedir(bev, file, host, st, resp);
             }
         }
@@ -466,7 +458,6 @@ void event_init_listener (struct evconnlistener *listener, struct event_base *ba
         } else {
             write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "备用服务器端口启动失败");
             exit(1);
-
         }
     }
     evconnlistener_set_error_cb(listener, accept_error_cb);
@@ -516,16 +507,18 @@ void socket_serv_process () {
     evconnlistener_free(listener);
     event_base_free(base);
 }
-
-
 void server_init (const char *json_path) {
     /**根据json格式的配置初始化服务器配置*/
     p = init_server_config(json_path);
     if (!p) {
+        fprintf(stderr, "初始化Json配置失败\n");
+        fflush(stdout);
         exit(1);
     }
     /**初始化log文件*/
     if (open_log_fd(p->pool, p->log_path) != 0) {
+        fprintf(stderr, "打开log文件失败\n");
+        fflush(stdout);
         exit(1);
     }
     write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "初始化服务器成功");
