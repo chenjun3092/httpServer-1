@@ -456,6 +456,8 @@ void event_init_listener (struct evconnlistener *listener, struct event_base *ba
         if (listener != NULL) {
             write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "备用服务器端口启动成功");
         } else {
+            fprintf(stderr, "备用服务器端口启动失败\n");
+            fflush(stdout);
             write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "备用服务器端口启动失败");
             exit(1);
         }
