@@ -1,6 +1,6 @@
 {
   "server": {
-    "port": 9999,
+    "port": 80,
     "dynamic_file": [
       "/examples/servlets/"
     ],
@@ -16,7 +16,7 @@
     "map_path": "/Users/fss/Desktop/hello/",
     "index": "hello.html",
     "log_path": "/Users/fss/servlog.log",
-    "alternate_port": 10001,
+    "alternate_port": 9999,
     "static_page": "/Users/fss/Desktop/hello/source/www/http/pages/static/%s",
     "load_balancing": 1,
     "load_servers": [
