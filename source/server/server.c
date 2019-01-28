@@ -244,6 +244,8 @@ void handle_http_request (struct bufferevent *bev) {
     host = get_headval(&request_head, request, "Host");
     if (!host) {
         write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "请求头解析错误");
+        fprintf(stderr, "请求头解析错误\n");
+        fflush(stdout);
         exit(1);
     }
     char *cookie = get_headval(&request_head, request, "Cookie");
@@ -413,6 +415,8 @@ void listener_init (
     struct bufferevent *bev;
     bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
     if (bev == NULL) {
+        fprintf(stderr, "创建监听失败\n");
+        fflush(stdout);
         write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "创建监听失败，server退出");
         exit(1);
     } else {
@@ -526,7 +530,9 @@ void server_init (const char *json_path) {
     write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "初始化服务器成功");
     int ret = chdir(p->map_path);
     if (ret) {
-        write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "配置文件初始化失败");
+        fprintf(stderr, "切换工作目录失败\n");
+        fflush(stdout);
+        write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "切换工作目录失败");
         exit(1);
     }
     socket_serv_process();
