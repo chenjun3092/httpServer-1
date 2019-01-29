@@ -97,7 +97,7 @@ void send_respond_head (struct bufferevent *bev, struct response_struct resp) {
     }
     strcpy(buf + strlen(buf), "Connection: keep-alive\r\n");
     strcpy(buf + strlen(buf), "Server: helloServer\r\n");
-    if (!strlen(resp.cookie)) {
+    if (strlen(resp.cookie)) {
         sprintf(buf + strlen(buf), "Set-Cookie: %s\r\n", resp.cookie);
     }
     strcpy(buf + strlen(buf), "\r\n");
@@ -173,7 +173,7 @@ void send_directory_ (struct bufferevent *bev, char *file, char *host, response_
     struct response_struct resp;
 
     init_resp(&resp);
-    if (!strlen(resp1.cookie)) {
+    if (strlen(resp1.cookie)) {
         strcpy(resp.cookie,resp1.cookie);
     }
     strcpy(resp.type,"text/html; charset=utf-8");
@@ -510,7 +510,7 @@ void socket_serv_process () {
 }
 
 /**
- * 根据json配置文件初始化服务器
+ * 根据json配置文件初始化服务器,打开log文件
  * @param json_path json配置文件的目录
  */
 void server_init (const char *json_path) {
