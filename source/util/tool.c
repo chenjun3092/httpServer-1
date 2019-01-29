@@ -9,6 +9,11 @@
 #include "map.h"
 #include <uuid/uuid.h>
 
+/**
+ *
+ * @param ip_port host和port的组合体 类似于 127.0.0.1:9999
+ * @param c c = 0,返回host; c =1,返回ip
+ */
 char *findiport (char *ip_port, int c) {
     if (ip_port != NULL) {
         switch (c) {
@@ -39,15 +44,6 @@ int hexit (char c) {
     return 0;
 }
 
-unsigned int JSHash (char *str) {
-    unsigned int hash = 1315423911;
-    while (*str) {
-        hash ^= ((hash << 5) + (*str++) + (hash >> 2));
-    }
-
-    return (hash & 0x7FFFFFFF);
-
-}
 
 void encode_str (char *to, int tosize, const char *from) {
     int tolen;
@@ -133,7 +129,9 @@ const char *get_file_type (const char *name) {
     return "text/plain; charset=utf-8";
 }
 
-
+/**
+ * @return 以特定的时间返回系统时间
+ */
 const char *get_datetime () {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
@@ -143,6 +141,9 @@ const char *get_datetime () {
     return time_buf;
 }
 
+/**
+ * @return 返回系统时间中的hour
+ */
 int get_hour () {
     time_t t = time(NULL);
     struct tm tm_struct = *localtime(&t);
@@ -162,14 +163,20 @@ void set_cookie(char *cookies){
     strcpy(cookies + strlen(cookies), "; path=/; Expires=Wed, 21 Oct 9999 12:59:59 GMT;");
     uuid_clear(uu);
 }
-
+/**
+ * @return 返回系统时间中的天
+ */
 int get_day () {
     time_t t = time(NULL);
     struct tm tm_struct = *localtime(&t);
     int day = tm_struct.tm_yday;
     return day + 1;
 }
-
+/**
+ *
+ * @param reqhead 请求头
+ * @param head_param 请求头中的键值对的键值
+ */
 char *parser_httphead (char *reqhead, char *head_param) {
     while (*reqhead != '\n') {
         reqhead++;
@@ -232,6 +239,13 @@ char *parse_cookies (char *c, char *h) {
     else
         return NULL;
 }
+/**
+ *
+ * @param m
+ * @param request
+ * @param param
+ * @return 得到已经经过解析的键值对的值
+ */
 char *get_headval (map_str_t *m, char *request, char *param) {
     char **h;
     char *val = NULL;
