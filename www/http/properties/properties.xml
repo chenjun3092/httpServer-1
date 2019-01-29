@@ -1,1 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?><properties><server><port>9999</port><dynamic_file>.php</dynamic_file><static_page>./www/http/pages/static/%s</static_page><map_path>/Users/fss/CLionProjects/httpServ/</map_path><index>hello.html</index><log_path>/Users/fss/servlog.log</log_path><alternate_port>9998</alternate_port></server></properties>
