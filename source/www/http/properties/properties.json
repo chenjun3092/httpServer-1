@@ -1,6 +1,6 @@
 {
   "server": {
-    "port": 80,
+    "port": 8889,
     "dynamic_file": [
       "/examples/servlets/"
     ],

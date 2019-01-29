@@ -20,10 +20,7 @@
 server_config_package *p = NULL;
 
 void init_resp (response_struct *resp) {
-    memset(resp->cookie, '\0', 256);
-    memset(resp->desc, '\0', 32);
-    memset(resp->type, '\0', 32);
-    memset(resp->host, '\0', 128);
+    resp->cookie = resp->type = resp->desc = resp->host = NULL;
     resp->len = 0;
     resp->no = 0;
 }
@@ -57,12 +54,12 @@ void send_file (struct bufferevent *bev, const char *filename) {
     } else {
         int flags;
         /**设置文件的非阻塞读*/
-        flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+        /*flags = fcntl(STDIN_FILENO, F_GETFL, 0);
         flags |= O_NONBLOCK;
-        fcntl(STDIN_FILENO, F_SETFL, flags);
+        fcntl(STDIN_FILENO, F_SETFL, flags);*/
         char buf[8192] = {0};
         int len = 0;
-        while ((len = (int) read(file_fd, buf, sizeof(buf))) > 0) {
+        while ((len = (int) read(file_fd, buf, 8192 * sizeof(char))) > 0) {
             bufferevent_write(bev, buf, strlen(buf));
         }
         close(file_fd);
@@ -75,7 +72,11 @@ void send_file (struct bufferevent *bev, const char *filename) {
     }
 }
 
-
+/**
+ * 向浏览器发送响应头信息
+ * @param bev
+ * @param resp 响应头
+ */
 void send_respond_head (struct bufferevent *bev, struct response_struct resp) {
     char buf[2048] = {0};
     /**状态行*/
@@ -93,7 +94,7 @@ void send_respond_head (struct bufferevent *bev, struct response_struct resp) {
     }
     strcpy(buf + strlen(buf), "Connection: keep-alive\r\n");
     strcpy(buf + strlen(buf), "Server: helloServer\r\n");
-    if (strlen(resp.cookie) != 0) {
+    if (resp.cookie) {
         sprintf(buf + strlen(buf), "Set-Cookie: %s\r\n", resp.cookie);
     }
     strcpy(buf + strlen(buf), "\r\n");
@@ -169,25 +170,23 @@ void send_directory_ (struct bufferevent *bev, char *file, char *host, response_
     struct response_struct resp;
 
     init_resp(&resp);
-    if (strlen(resp1.cookie) != 0) {
-        strcpy(resp.cookie, resp1.cookie);
+    if (resp1.cookie != NULL) {
+        resp.cookie = resp1.cookie;
     }
-    resp.no = 301;
-    strcpy(resp.type, "text/html; charset=utf-8");
+    resp.type = "text/html; charset=utf-8";
     resp.len = -1;
-    strcpy(resp.desc, "Moved Permanently");
-    strcpy(resp.host, host);
     if (t != '/') {
         /**通过http response code 产生重定向*/
         file[len] = '/';
         file[len + 1] = '\0';
         strcpy(host + strlen(host), file);
+        resp.host = host;
         sprintf(error_buf, "%s %s", host, "产生了301重定向");
         write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
+        resp.no = 301;
+        resp.desc = "Moved Permanently";
         send_respond_head(bev, resp);
     } else {
-        resp.no = 200;
-        strcpy(resp.desc, OK);
         send_respond_head(bev, resp);
     }
     send_directory(bev, file);
@@ -222,7 +221,6 @@ void send_filedir (struct bufferevent *bev, char *filepath,
     }
 }
 
-
 /**
  * 处理http请求的核心函数
  * @param bev
@@ -249,27 +247,6 @@ void handle_http_request (struct bufferevent *bev) {
         exit(1);
     }
     char *cookie = get_headval(&request_head, request, "Cookie");
-    /**为了应对chrome自带的cookie*/
-    int is_set_cookie = 0;
-    char cookies[128] = {0};
-    char *u = NULL;
-    if (cookie) {
-        /*判断是否在之前设置过cookie中的uid值*/
-        if (strncmp(cookie, "uid", 3) != 0) {
-            u = parse_cookies(cookie, "uid");
-            if (!u) {
-                set_cookie(cookies);
-                is_set_cookie = 1;
-            } else {
-                /*使用原来有的cookie*/
-            }
-        }
-    }
-    if (is_set_cookie) {
-        strcpy(resp.cookie, cookies);
-        if (u != NULL)
-            free(u);
-    }
     strcpy(host + strlen(host), "/");
     decode_str(path, path);
     /**client 在服务器上实际访问的位置*/
@@ -292,11 +269,11 @@ void handle_http_request (struct bufferevent *bev) {
                 sprintf(error_buf, "%s %s", redirect_path, "产生了302重定向");
                 write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
 
-                strcpy(resp.type, "text/html; charset=utf-8");
+                resp.type = "text/html; charset=utf-8";
                 resp.len = -1;
-                strcpy(resp.host, redirect_path);
+                resp.host = redirect_path;
                 resp.no = 302;
-                strcpy(resp.desc, "Moved Permanently");
+                resp.desc = "Moved Permanently";
                 send_respond_head(bev, resp);
             }
         }
@@ -322,10 +299,10 @@ void handle_http_request (struct bufferevent *bev) {
                 sprintf(error_buf, "%s %s", host, "产生了301重定向");
                 write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
                 resp.no = 301;
-                strcpy(resp.desc, "Moved Permanently");
-                strcpy(resp.host, host);
+                resp.desc = "Moved Permanently";
+                resp.host = host;
                 resp.len = -1;
-                strcpy(resp.type, "text/html; charset=utf-8");
+                resp.type = "text/html";
                 send_respond_head(bev, resp);
             }
         }
@@ -337,10 +314,10 @@ void handle_http_request (struct bufferevent *bev) {
                 sprintf(file, p->static_path, page);
                 /**判断当前访问的文件是否位于static目录下(一般用于重要的静态页面)*/
                 if (!stat(file, &st)) {
-                    strcpy(resp.desc, OK);
+                    resp.desc = OK;
                     resp.no = 200;
                     resp.len = st.st_size;
-                    strcpy(resp.type, get_file_type(file));
+                    resp.type = get_file_type(file);
                     send_filedir(bev, file, host, st, resp);
                 } else {
                     /**当前文件不存在且不是任何转发路径*/
@@ -349,17 +326,17 @@ void handle_http_request (struct bufferevent *bev) {
                     write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
                     resp.no = 404;
                     resp.len = -1;
-                    strcpy(resp.desc, "Not Found");
-                    strcpy(resp.type, "text/html; charset=utf-8");
+                    resp.desc = "Not Found";
+                    resp.type = "text/html; charset=utf-8";
                     send_respond_head(bev, resp);
                     send_404file(bev);
                 }
             } else {
                 /*访问公开目录下的文件*/
-                strcpy(resp.desc, OK);
+                resp.desc = OK;
                 resp.no = 200;
                 resp.len = st.st_size;
-                strcpy(resp.type, get_file_type(file));
+                resp.type = get_file_type(file);
                 send_filedir(bev, file, host, st, resp);
             }
         }
@@ -385,7 +362,7 @@ void read_cb (struct bufferevent *bev, void *arg) {
 
 
 void write_cb (struct bufferevent *bev, void *arg) {
-    fflush(stderr);
+    fflush(stdout);
 }
 
 void event_cb (struct bufferevent *bev, short events, void *arg) {
@@ -415,9 +392,9 @@ void listener_init (
     struct bufferevent *bev;
     bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
     if (bev == NULL) {
-        fprintf(stderr, "创建监听失败\n");
-        fflush(stderr);
         write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "创建监听失败，server退出");
+        fprintf(stderr, "创建监听失败，server退出\n");
+        fflush(stderr);
         exit(1);
     } else {
         char buf[128];
@@ -428,7 +405,11 @@ void listener_init (
     bufferevent_setcb(bev, read_cb, write_cb, event_cb, NULL);
     bufferevent_enable(bev, EV_READ);
 }
-
+/**
+ * 根据json文件得到服务器的配置
+ * @param json_path
+ * @return  服务器的配置结构体
+ */
 server_config_package *init_server_config (const char *json_path) {
     server_config_package *package = parse_json(json_path);
     if (package == NULL) {
@@ -441,7 +422,12 @@ server_config_package *init_server_config (const char *json_path) {
     }
 }
 
-
+/**
+ * 在预置的端口上开启http服务
+ * @param listener
+ * @param base
+ * @param serv listener绑定的监听地址
+ */
 void event_init_listener (struct evconnlistener *listener, struct event_base *base, struct sockaddr_in serv) {
 
     listener = evconnlistener_new_bind(base, listener_init, base,
@@ -449,8 +435,6 @@ void event_init_listener (struct evconnlistener *listener, struct event_base *ba
                                        36, (struct sockaddr *) &serv, sizeof(serv));
     if (listener != NULL) {
         write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "绑定服务器端口成功");
-        fprintf(stdout,"服务器启动成功\n");
-        fflush(stdout);
     } else {
         /**
          * 启动配置文件中选定的备用端口
@@ -463,7 +447,10 @@ void event_init_listener (struct evconnlistener *listener, struct event_base *ba
             write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "备用服务器端口启动成功");
         } else {
             write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "备用服务器端口启动失败");
+            fprintf(stderr, "备用服务器端口启动失败\n");
+            fflush(stderr);
             exit(1);
+
         }
     }
     evconnlistener_set_error_cb(listener, accept_error_cb);
@@ -500,7 +487,9 @@ accept_error_cb (struct evconnlistener *listener, void *ctx) {
     } while (0);
 
 }
-
+/**
+ * 服务器监听套接字的初始化工作
+ */
 void socket_serv_process () {
     struct sockaddr_in serv;
     evthread_use_pthreads();
@@ -513,26 +502,30 @@ void socket_serv_process () {
     evconnlistener_free(listener);
     event_base_free(base);
 }
+
+/**
+ * 根据json配置文件初始化服务器
+ * @param json_path json配置文件的目录
+ */
 void server_init (const char *json_path) {
-    /**根据json格式的配置初始化服务器配置*/
     p = init_server_config(json_path);
     if (!p) {
-        fprintf(stderr, "初始化Json配置失败\n");
+        fprintf(stderr, "服务器初始化配置失败\n");
         fflush(stderr);
         exit(1);
     }
     /**初始化log文件*/
     if (open_log_fd(p->pool, p->log_path) != 0) {
-        fprintf(stderr, "打开log文件失败\n");
+        fprintf(stderr, "log文件初始化失败\n");
         fflush(stderr);
         exit(1);
     }
     write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "初始化服务器成功");
     int ret = chdir(p->map_path);
     if (ret) {
-        fprintf(stderr, "切换工作目录失败\n");
+        write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "工作目录切换失败");
+        fprintf(stderr, "工作目录切换失败\n");
         fflush(stderr);
-        write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "切换工作目录失败");
         exit(1);
     }
     socket_serv_process();

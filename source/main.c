@@ -34,6 +34,7 @@ int main (int argc, char *argv[]) {
     }
     jpath = argv[1];
     server_init(jpath);
+    return  0 ;
 }
 
 #endif
