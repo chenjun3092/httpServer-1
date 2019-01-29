@@ -246,6 +246,7 @@ void handle_http_request (struct bufferevent *bev) {
         fflush(stderr);
         exit(1);
     }
+    /**获取cookie*/
     char *cookie = get_headval(&request_head, request, "Cookie");
     strcpy(host + strlen(host), "/");
     decode_str(path, path);
