@@ -1,10 +1,10 @@
 {
   "server": {
-    "port": 8881,
+    "port": 8882,
     "dynamic_file": [
       "/examples/servlets/"
     ],
-    "error_page": "/Users/fss/Desktop/hello/source/www/http/pages/%s",
+    "error_page": "/Users/fss/Desktop/hello/www/http/pages/error_page/%s",
     "redirect_path": [
       "/xyd/anon",
       "/api/carousel"
@@ -17,7 +17,7 @@
     "index": "hello.html",
     "log_path": "/Users/fss/servlog.log",
     "alternate_port": 10002,
-    "static_page": "/Users/fss/Desktop/hello/source/www/http/pages/static/%s",
+    "static_page": "/Users/fss/Desktop/hello/www/http/pages/static/%s",
     "load_balancing": 1,
     "load_servers": [
       8080,

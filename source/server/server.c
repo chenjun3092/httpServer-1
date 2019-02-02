@@ -63,7 +63,8 @@ void send_file (struct bufferevent *bev, const char *filename) {
         char buf[8192] = {0};
         int len = 0;
         while ((len = (int) read(file_fd, buf, 8192 * sizeof(char))) > 0) {
-            bufferevent_write(bev, buf, strlen(buf));
+            bufferevent_write(bev, buf, (size_t)len);
+            memset(buf,'\0',strlen(buf));
         }
         close(file_fd);
         /**读取文件出现错误*/
@@ -234,7 +235,7 @@ void handle_http_request (struct bufferevent *bev) {
     response_struct resp;
     init_resp(&resp);
     char request[4096] = {0};
-    char error_buf[128] = {0};
+    char error_buf[512] = {0};
     bufferevent_read(bev, request, sizeof(request));
     char page[512];
     char method[12], path[1024], protocol[12], *host;
