@@ -96,7 +96,7 @@ void send_respond_head (struct bufferevent *bev, struct response_struct resp) {
         /**用于被转发到tomcat的JavaWeb请求*/
         sprintf(buf + strlen(buf), "Location:%s\r\n", resp.host);
     }
-    strcpy(buf + strlen(buf), "Connection: keep-alive\r\n");
+    strcpy(buf + strlen(buf), "Connection: close\r\n");
     strcpy(buf + strlen(buf), "Server: helloServer\r\n");
     if (strlen(resp.cookie)) {
         sprintf(buf + strlen(buf), "Set-Cookie: %s\r\n", resp.cookie);
@@ -409,6 +409,10 @@ void listener_init (
     evutil_make_socket_nonblocking(fd);
     bufferevent_setcb(bev, read_cb, write_cb, event_cb, NULL);
     bufferevent_enable(bev, EV_READ);
+    /**设置超时时间*/
+    struct timeval r  = {20,0};
+    struct timeval w  = {40,0};
+    bufferevent_set_timeouts(bev,&r,&w);
 }
 
 /**
@@ -506,6 +510,7 @@ void socket_serv_process () {
     serv = init_serv();
     event_init_listener(listener, base, serv);
     /*释放libevent资源*/
+    event_base_loopexit(base, NULL);
     evconnlistener_free(listener);
     event_base_free(base);
 }
