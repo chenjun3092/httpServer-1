@@ -31,7 +31,7 @@ server_config_package *parse_json (const char *json_path) {
             p->error_page = error_page->valuestring;
         } else {
             /*必须配置错误页面*/
-            fprintf(stderr,"错误页面没有设置\n");
+            fprintf(stderr, "错误页面没有设置\n");
             fflush(stderr);
             write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, "错误页面配置失败");
             exit(1);
@@ -117,7 +117,7 @@ server_config_package *parse_json (const char *json_path) {
             p->redirect_site[0] = NULL;
         }
         if (p->site_num != p->r_num) {
-            fprintf(stderr,"转发规则设置错误\n");
+            fprintf(stderr, "转发规则设置错误\n");
             fflush(stderr);
             write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, "转发规则与转发的网站数目不同");
             exit(1);

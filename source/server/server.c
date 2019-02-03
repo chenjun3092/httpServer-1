@@ -2,6 +2,8 @@
 #include "tool.h"
 #include "log.h"
 #include "init_config.h"
+#include "parse_json.h"
+#include "post/post_handler.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,7 +14,6 @@
 #include <dirent.h>
 #include <event2/event.h>
 #include <event2/listener.h>
-#include "parse_json.h"
 #include <event2/thread.h>
 #include <signal.h>
 
@@ -226,25 +227,23 @@ void send_filedir (struct bufferevent *bev, char *filepath,
 }
 
 /**
- * 处理http请求的核心函数
+ *
  * @param bev
+ * @param request  http get 请求头
+ * @param path  http 请求的路径
  */
-void handle_http_request (struct bufferevent *bev) {
+void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
     map_str_t request_head;/**用于存储已经经过解析的http请求头*/
     map_init(&request_head);
     response_struct resp;
     init_resp(&resp);
-    char request[4096] = {0};
     char error_buf[512] = {0};
-    bufferevent_read(bev, request, sizeof(request));
     char page[512];
-    char method[12], path[1024], protocol[12], *host;
-    sscanf(request, "%[^ ] %[^ ] %[^ \r\n] ", method, path, protocol);
+    char *host;
     /**
-     * 获取请求头中的 Host:
-     */
+    * 获取请求头中的 Host:
+    */
     host = get_headval(&request_head, request, "Host");
-    char *content_type = get_headval(&request_head, request, "Content-Type");
     if (!host) {
         write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "请求头解析错误");
         fprintf(stderr, "请求头解析错误\n");
@@ -355,6 +354,62 @@ void handle_http_request (struct bufferevent *bev) {
         free(val_d);
     }
     map_deinit(&request_head);
+}
+
+extern post_func post_func_array[];
+
+/**
+ *
+ * @param bev
+ * @param request http post 请求头
+ * @param path  http 请求路径
+ */
+void do_http_post_handler (struct bufferevent *bev, char *request, char *path) {
+    int i;
+    post_func p;
+    char *res;
+    response_struct resp;
+
+    for (i = 0;; ++i) {
+        p = post_func_array[i];
+        if (!p.func) {
+            return;
+        } else if (!strcmp(p.func_name, path)) {
+            char *(*func) (void *) =  p.func;
+            res = func(NULL);
+            strcpy(resp.desc, OK);
+            resp.no = 200;
+            resp.len = strlen(res);
+            strcpy(resp.type, "application/json");
+            send_respond_head(bev, resp);
+            bufferevent_write(bev, res, (size_t) resp.len);
+            free(res);
+        }
+    }
+
+}
+
+/**
+ * 处理http请求的核心函数
+ * @param bev     char *content_type = get_headval(&request_head, request, "Content-Type");
+
+ */
+void handle_http_request (struct bufferevent *bev) {
+
+    char request[4096] = {0};
+
+    bufferevent_read(bev, request, sizeof(request));
+    char method[12], path[1024], protocol[12];
+    sscanf(request, "%[^ ] %[^ ] %[^ \r\n] ", method, path, protocol);
+    if (!strcasecmp(method, "GET")) {
+        do_http_get_handler(bev, request, path);
+    } else if (!strcasecmp(method, "POST")) {
+        do_http_post_handler(bev, request, path);
+    } else {
+        //todo 未知的http请求方法
+        write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "未知的http请求方法");
+    }
+
 }
 
 /**
