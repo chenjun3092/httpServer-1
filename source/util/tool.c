@@ -93,6 +93,8 @@ const char *get_file_type (const char *name) {
         return "text/html; charset=utf-8";
     if (strcmp(dot, ".jpg") == 0 || strcmp(dot, ".jpeg") == 0)
         return "image/jpeg";
+    if (strcmp(dot, ".pdf") == 0)
+        return "application/pdf";
     if (strcmp(dot, ".gif") == 0)
         return "image/gif";
     if (strcmp(dot, ".c") == 0)
@@ -101,6 +103,12 @@ const char *get_file_type (const char *name) {
         return "image/png";
     if (strcmp(dot, ".css") == 0)
         return "text/css";
+    if (strcmp(dot, ".mp4") == 0)
+        return "video/mpeg4";
+    if (strcmp(dot, ".avi") == 0)
+        return "video/avi";
+    if (strcmp(dot, ".mp3") == 0)
+        return "audio/mp3";
     if (strcmp(dot, ".ico") == 0)
         return "image/png";
     if (strcmp(dot, ".txt") == 0)
@@ -151,7 +159,7 @@ int get_hour () {
     return hour;
 }
 
-void set_cookie(char *cookies){
+void set_cookie (char *cookies) {
     uuid_t uu;
     uuid_generate(uu);
     memset(cookies, '\0', 128 * sizeof(char));
@@ -163,6 +171,7 @@ void set_cookie(char *cookies){
     strcpy(cookies + strlen(cookies), "; path=/; Expires=Wed, 21 Oct 9999 12:59:59 GMT;");
     uuid_clear(uu);
 }
+
 /**
  * @return 返回系统时间中的天
  */
@@ -172,6 +181,7 @@ int get_day () {
     int day = tm_struct.tm_yday;
     return day + 1;
 }
+
 /**
  *
  * @param reqhead 请求头
@@ -239,6 +249,7 @@ char *parse_cookies (char *c, char *h) {
     else
         return NULL;
 }
+
 /**
  *
  * @param m

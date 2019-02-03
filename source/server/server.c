@@ -63,8 +63,8 @@ void send_file (struct bufferevent *bev, const char *filename) {
         char buf[8192] = {0};
         int len = 0;
         while ((len = (int) read(file_fd, buf, 8192 * sizeof(char))) > 0) {
-            bufferevent_write(bev, buf, (size_t)len);
-            memset(buf,'\0',strlen(buf));
+            bufferevent_write(bev, buf, (size_t) len);
+            memset(buf, '\0', strlen(buf));
         }
         close(file_fd);
         /**读取文件出现错误*/
@@ -175,20 +175,20 @@ void send_directory_ (struct bufferevent *bev, char *file, char *host, response_
 
     init_resp(&resp);
     if (strlen(resp1.cookie)) {
-        strcpy(resp.cookie,resp1.cookie);
+        strcpy(resp.cookie, resp1.cookie);
     }
-    strcpy(resp.type,"text/html; charset=utf-8");
+    strcpy(resp.type, "text/html; charset=utf-8");
     resp.len = -1;
     if (t != '/') {
         /**通过http response code 产生重定向*/
         file[len] = '/';
         file[len + 1] = '\0';
         strcpy(host + strlen(host), file);
-        strcpy(resp.host,host);
+        strcpy(resp.host, host);
         sprintf(error_buf, "%s %s", host, "产生了301重定向");
         write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
         resp.no = 301;
-        strcpy(resp.desc,"Moved Permanently");
+        strcpy(resp.desc, "Moved Permanently");
         send_respond_head(bev, resp);
     } else {
         send_respond_head(bev, resp);
@@ -244,6 +244,7 @@ void handle_http_request (struct bufferevent *bev) {
      * 获取请求头中的 Host:
      */
     host = get_headval(&request_head, request, "Host");
+    char *content_type = get_headval(&request_head, request, "Content-Type");
     if (!host) {
         write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "请求头解析错误");
         fprintf(stderr, "请求头解析错误\n");
@@ -274,11 +275,11 @@ void handle_http_request (struct bufferevent *bev) {
                 sprintf(error_buf, "%s %s", redirect_path, "产生了302重定向");
                 write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
 
-                strcpy(resp.type,"text/html; charset=utf-8");
+                strcpy(resp.type, "text/html; charset=utf-8");
                 resp.len = -1;
-                strcpy(resp.host,redirect_path);
+                strcpy(resp.host, redirect_path);
                 resp.no = 302;
-                strcpy(resp.desc,"Moved Permanently");
+                strcpy(resp.desc, "Moved Permanently");
                 send_respond_head(bev, resp);
             }
         }
@@ -304,10 +305,10 @@ void handle_http_request (struct bufferevent *bev) {
                 sprintf(error_buf, "%s %s", host, "产生了301重定向");
                 write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
                 resp.no = 301;
-                strcpy(resp.desc,"Moved Permanently");
-                strcpy(resp.host,host);
+                strcpy(resp.desc, "Moved Permanently");
+                strcpy(resp.host, host);
                 resp.len = -1;
-                strcpy(resp.type,"text/html");
+                strcpy(resp.type, "text/html");
                 send_respond_head(bev, resp);
             }
         }
@@ -319,10 +320,10 @@ void handle_http_request (struct bufferevent *bev) {
                 sprintf(file, p->static_path, page);
                 /**判断当前访问的文件是否位于static目录下(一般用于重要的静态页面)*/
                 if (!stat(file, &st)) {
-                    strcpy(resp.desc,OK);
+                    strcpy(resp.desc, OK);
                     resp.no = 200;
                     resp.len = st.st_size;
-                    strcpy(resp.type,get_file_type(file));
+                    strcpy(resp.type, get_file_type(file));
                     send_filedir(bev, file, host, st, resp);
                 } else {
                     /**当前文件不存在且不是任何转发路径*/
@@ -331,17 +332,17 @@ void handle_http_request (struct bufferevent *bev) {
                     write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
                     resp.no = 404;
                     resp.len = -1;
-                    strcpy(resp.desc,"Not Found");
-                    strcpy(resp.type,"text/html; charset=utf-8");
+                    strcpy(resp.desc, "Not Found");
+                    strcpy(resp.type, "text/html; charset=utf-8");
                     send_respond_head(bev, resp);
                     send_404file(bev);
                 }
             } else {
                 /*访问公开目录下的文件*/
-                strcpy(resp.desc,OK);
+                strcpy(resp.desc, OK);
                 resp.no = 200;
                 resp.len = st.st_size;
-                strcpy(resp.type,get_file_type(file));
+                strcpy(resp.type, get_file_type(file));
                 send_filedir(bev, file, host, st, resp);
             }
         }
@@ -410,9 +411,9 @@ void listener_init (
     bufferevent_setcb(bev, read_cb, write_cb, event_cb, NULL);
     bufferevent_enable(bev, EV_READ);
     /**设置超时时间*/
-    struct timeval r  = {20,0};
-    struct timeval w  = {40,0};
-    bufferevent_set_timeouts(bev,&r,&w);
+    struct timeval r = {20, 0};
+    struct timeval w = {40, 0};
+    bufferevent_set_timeouts(bev, &r, &w);
 }
 
 /**
