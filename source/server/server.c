@@ -369,6 +369,10 @@ void do_http_post_handler (struct bufferevent *bev, char *request, char *path) {
     post_func p;
     char *res;
     response_struct resp;
+    init_resp(&resp);
+    map_str_t request_head;/**用于存储已经经过解析的http请求头*/
+    map_init(&request_head);
+    const char *content_type = get_headval(&request_head, request, "Content-Type");
 
     for (i = 0;; ++i) {
         p = post_func_array[i];
@@ -384,8 +388,16 @@ void do_http_post_handler (struct bufferevent *bev, char *request, char *path) {
             send_respond_head(bev, resp);
             bufferevent_write(bev, res, (size_t) resp.len);
             free(res);
+            break;
         }
     }
+    const char *key;
+    map_iter_t iter = map_iter(&m);
+    while ((key = map_next(&request_head, &iter))) {
+        char *val_d = *map_get(&request_head, key);
+        free(val_d);
+    }
+    map_deinit(&request_head);
 
 }
 
