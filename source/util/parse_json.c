@@ -122,7 +122,9 @@ server_config_package *parse_json (const char *json_path) {
             write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, "转发规则与转发的网站数目不同");
             exit(1);
         }
-
+    }
+    if (!root) {
+        cJSON_Delete(root);
     }
     fclose(fp);
 

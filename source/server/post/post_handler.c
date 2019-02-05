@@ -15,6 +15,8 @@ char *login (void *arg) {
         cJSON_AddStringToObject(response_root, "result", "ok");
         cJSON_AddStringToObject(response_root, "status", "登录成功");
         char *response_str = cJSON_Print(response_root);
+        cJSON_Delete(response_root);
+
         return response_str;
     } else {
         return NULL;
@@ -32,6 +34,7 @@ char *sign_in (void *arg) {
         cJSON_AddStringToObject(response_root, "result", "ok");
         cJSON_AddStringToObject(response_root, "status", "注册成功");
         char *response_str = cJSON_Print(response_root);
+        cJSON_Delete(response_root);
         return response_str;
     } else {
         return NULL;
