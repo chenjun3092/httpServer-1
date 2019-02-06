@@ -97,6 +97,8 @@ const char *get_file_type (const char *name) {
         return "application/pdf";
     if (strcmp(dot, ".gif") == 0)
         return "image/gif";
+    if (strcmp(dot, ".md") == 0)
+        return "text/html; charset=utf-8";
     if (strcmp(dot, ".c") == 0)
         return "text/plain; charset=utf-8";
     if (strcmp(dot, ".png") == 0)

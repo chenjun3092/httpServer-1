@@ -16,6 +16,7 @@
 #include <event2/listener.h>
 #include <event2/thread.h>
 #include <signal.h>
+#include "../module/markdown_src/markdown_parser/markdown_parser.h"
 
 /*服务器全局配置*/
 server_config_package *p = NULL;
@@ -49,6 +50,11 @@ void send_404file (struct bufferevent *bev) {
  */
 void send_file (struct bufferevent *bev, const char *filename) {
     char error_buf[128] = {0};
+    char *dot = strrchr(filename, '.');
+    if (dot &&!strcmp(dot, ".md")) {
+        /*do_parser(filename);*/
+        strcpy(dot, ".html");
+    }
     int file_fd = open(filename, O_RDONLY);
     if (file_fd < 0) {
         /*在服务器中找不到给定文件名的文件*/
@@ -314,6 +320,7 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
         if (!is_bloading) {
             struct stat st;
             int ret = stat(file, &st);
+            char *dot;
             if (ret == -1) {
                 strcpy(page, file);
                 sprintf(file, p->static_path, page);
@@ -321,8 +328,14 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
                 if (!stat(file, &st)) {
                     strcpy(resp.desc, OK);
                     resp.no = 200;
-                    resp.len = st.st_size;
                     strcpy(resp.type, get_file_type(file));
+                    dot = strchr(file, '.');
+                    if (dot &&!strcmp(dot, ".md")) {
+                        do_parser(file);
+                        strcpy(dot, ".html");
+                    }
+                    stat(file, &st);
+                    resp.len = st.st_size;
                     send_filedir(bev, file, host, st, resp);
                 } else {
                     /**当前文件不存在且不是任何转发路径*/
@@ -340,8 +353,14 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
                 /*访问公开目录下的文件*/
                 strcpy(resp.desc, OK);
                 resp.no = 200;
-                resp.len = st.st_size;
                 strcpy(resp.type, get_file_type(file));
+                dot = strchr(file, '.');
+                if (dot && !strcmp(dot, ".md")) {
+                    do_parser(file);
+                    strcpy(dot, ".html");
+                }
+                stat(file, &st);
+                resp.len = st.st_size;
                 send_filedir(bev, file, host, st, resp);
             }
         }

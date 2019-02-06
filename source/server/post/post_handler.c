@@ -32,7 +32,6 @@ char *sign_in (void *arg) {
     if (true) {
         cJSON *response_root = cJSON_CreateObject();
         cJSON_AddStringToObject(response_root, "result", "ok");
-        cJSON_AddStringToObject(response_root, "status", "注册成功");
         char *response_str = cJSON_Print(response_root);
         cJSON_Delete(response_root);
         return response_str;
@@ -42,5 +41,5 @@ char *sign_in (void *arg) {
 }
 
 post_func post_func_array[] = {{"/login",    login},
-                               {"/register", sign_in},
+                               {"/reg", sign_in},
                                {NULL, NULL}};
