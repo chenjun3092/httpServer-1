@@ -41,6 +41,6 @@ char *get_sign_in (void *arg) {
     }
 }
 
-get_function get_func_array[] = {{"/login", get_login},
+get_function get_func_array[] = {{"/me/login", get_login},
                                  {"/reg",   get_sign_in},
                                  {NULL, NULL}};

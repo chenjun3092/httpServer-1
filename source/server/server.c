@@ -158,11 +158,13 @@ void send_directory (struct bufferevent *bev, const char *dirname) {
             }
             bufferevent_write(bev, buf, strlen(buf));
             memset(buf, 0, sizeof(buf));
+            free(ptr[i]);
         }
         /**发送由子目录和普通文件元素构成的html表格*/
         sprintf(buf + strlen(buf), END_TABLE);
         bufferevent_write(bev, buf, strlen(buf));
     }
+    struct dirent *dirbuf;
 }
 
 /**
@@ -317,7 +319,7 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
         for (i = 0; i < p->d_len; ++i) {
             /**是否是负载均衡的路径*/
             if (!strcasecmp(path, p->dynamic_file[i])) {
-                char *host_;
+                char *host_ = NULL;
                 host_ = findiport(host, 0);
                 *host_ = '\0';
                 host_ = host;
