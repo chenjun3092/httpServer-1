@@ -5,9 +5,9 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <uuid/uuid.h>
 #include "map.h"
 #include <uuid/uuid.h>
+#include "tool.h"
 
 /**
  *
@@ -270,3 +270,31 @@ char *get_headval (map_str_t *m, char *request, char *param) {
     }
     return val;
 };
+
+/**
+ * 获取post中的post负载信息
+ * @param request
+ * @param pay_load
+ */
+void get_payload (const char *request, char *pay_load) {
+    int c = 0;
+    int i = 0;
+    while (request[i] != '\0') {
+        if (request[i] == '\r' && request[i + 1] == '\n') {
+            if (c == 1) {
+                i += 2;
+                break;
+            } else {
+                c = 0;
+            }
+        } else {
+            c++;
+        }
+        i++;
+    }
+    int l = (int) strlen(request);
+    c = 0;
+    for (int j = i; j < l; ++j) {
+        pay_load[c++] = request[j];
+    }
+}

@@ -1,6 +1,8 @@
 #include "post_handler.h"
 #include <stdlib.h>
 #include <server.h>
+#include <memory.h>
+#include "tool.h"
 #include "cJSON.h"
 
 
@@ -11,12 +13,14 @@
  */
 char *login (void *arg) {
     if (true) {
+        const char *request = (char *) arg;
+        char pay_str[1024] = {0};
+        get_payload(request, pay_str);
         cJSON *response_root = cJSON_CreateObject();
         cJSON_AddStringToObject(response_root, "result", "ok");
         cJSON_AddStringToObject(response_root, "status", "登录成功");
         char *response_str = cJSON_Print(response_root);
         cJSON_Delete(response_root);
-
         return response_str;
     } else {
         return NULL;
@@ -40,6 +44,6 @@ char *sign_in (void *arg) {
     }
 }
 
-post_func post_func_array[] = {{"/login",    login},
-                               {"/reg", sign_in},
+post_func post_func_array[] = {{"/login", login},
+                               {"/reg",   sign_in},
                                {NULL, NULL}};

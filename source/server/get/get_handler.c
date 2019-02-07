@@ -11,6 +11,7 @@
  */
 char *get_login (void *arg) {
     if (true) {
+        char *request = (char *) arg;
         cJSON *response_root = cJSON_CreateObject();
         cJSON_AddStringToObject(response_root, "result", "ok");
         cJSON_AddStringToObject(response_root, "status", "登录成功");
@@ -41,5 +42,5 @@ char *get_sign_in (void *arg) {
 }
 
 get_function get_func_array[] = {{"/login", get_login},
-                             {"/reg",   get_sign_in},
-                             {NULL, NULL}};
+                                 {"/reg",   get_sign_in},
+                                 {NULL, NULL}};

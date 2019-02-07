@@ -4,6 +4,8 @@
 
 #include <map.h>
 
+void get_payload (const char *request, char *pay_load);
+
 int hexit (char c);
 
 char *findiport (char *ip_port, int c);

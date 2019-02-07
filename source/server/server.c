@@ -260,7 +260,7 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
             break;
         } else if (!strcmp(gfunc.func_name, path)) {
             char *(*func) (void *) =  gfunc.func;
-            res = func(NULL);
+            res = func(request);
             strcpy(resp.desc, OK);
             resp.no = 200;
             resp.len = strlen(res);
@@ -421,7 +421,7 @@ void do_http_post_handler (struct bufferevent *bev, char *request, char *path) {
             return;
         } else if (!strcmp(p.func_name, path)) {
             char *(*func) (void *) =  p.func;
-            res = func(NULL);
+            res = func(request);
             strcpy(resp.desc, OK);
             resp.no = 200;
             resp.len = strlen(res);

@@ -6,10 +6,11 @@ set(CMAKE_C_STANDARD 11)
 include_directories(source/log)
 include_directories(source/server)
 include_directories(source/util)
-LINK_LIBRARIES(event event_pthreads )
+LINK_LIBRARIES(event event_pthreads)
 link_directories(/usr/local/lib)
-LINK_LIBRARIES(curl ssl crypto)
+LINK_LIBRARIES(curl ssl crypto event_openssl)
 add_executable(httpd
+        source/server/get/get_handler.c
         source/log/log.c
         source/server/server.c
         source/util/cJSON.c
@@ -17,6 +18,7 @@ add_executable(httpd
         source/util/threadpool.c
         source/util/tool.c
         source/util/map.c
+        source/server/https/https-common.c
         source/main.c source/server/post/post_handler.c
         source/module/markdown_src/markdown_convert/markdown_tohtml.c
         source/module/markdown_src/markdown_parser/markdown_paragraph.c
@@ -27,4 +29,4 @@ add_executable(httpd
         source/module/markdown_src/markdown_token/markdown_headnodes.c
         source/module/markdown_src/markdown_convert/markdown_html2pdf.c
         source/module/markdown_src/markdown_convert/markdown_time.c
-        source/module/markdown_src/markdown_translate/markdown_translate.c )
+        source/module/markdown_src/markdown_translate/markdown_translate.c)
