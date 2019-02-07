@@ -16,6 +16,7 @@
 #include <event2/listener.h>
 #include <event2/thread.h>
 #include <signal.h>
+#include "get/get_handler.h"
 #include "../module/markdown_src/markdown_parser/markdown_parser.h"
 
 /*服务器全局配置*/
@@ -51,7 +52,7 @@ void send_404file (struct bufferevent *bev) {
 void send_file (struct bufferevent *bev, const char *filename) {
     char error_buf[128] = {0};
     char *dot = strrchr(filename, '.');
-    if (dot &&!strcmp(dot, ".md")) {
+    if (dot && !strcmp(dot, ".md")) {
         /*do_parser(filename);*/
         strcpy(dot, ".html");
     }
@@ -238,6 +239,8 @@ void send_filedir (struct bufferevent *bev, char *filepath,
  * @param request  http get 请求头
  * @param path  http 请求的路径
  */
+extern get_function get_func_array[];
+
 void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
     map_str_t request_head;/**用于存储已经经过解析的http请求头*/
     map_init(&request_head);
@@ -249,6 +252,25 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
     /**
     * 获取请求头中的 Host:
     */
+    get_function gfunc;
+    char *res;
+    for (int i = 0;; ++i) {
+        gfunc = get_func_array[i];
+        if (!gfunc.func) {
+            break;
+        } else if (!strcmp(gfunc.func_name, path)) {
+            char *(*func) (void *) =  gfunc.func;
+            res = func(NULL);
+            strcpy(resp.desc, OK);
+            resp.no = 200;
+            resp.len = strlen(res);
+            strcpy(resp.type, "application/json");
+            send_respond_head(bev, resp);
+            bufferevent_write(bev, res, (size_t) resp.len);
+            free(res);
+            return;
+        }
+    }
     host = get_headval(&request_head, request, "Host");
     if (!host) {
         write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "请求头解析错误");
@@ -330,7 +352,7 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
                     resp.no = 200;
                     strcpy(resp.type, get_file_type(file));
                     dot = strchr(file, '.');
-                    if (dot &&!strcmp(dot, ".md")) {
+                    if (dot && !strcmp(dot, ".md")) {
                         do_parser(file);
                         strcpy(dot, ".html");
                     }
@@ -475,7 +497,7 @@ void event_cb (struct bufferevent *bev, short events, void *arg) {
  * @param len
  * @param ptr
  */
-void listener_init (
+void connect_init (
         struct evconnlistener *listener,
         evutil_socket_t fd,
         struct sockaddr *addr,
@@ -484,13 +506,12 @@ void listener_init (
     struct bufferevent *bev;
     bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
     if (bev == NULL) {
-        write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "创建监听失败，server退出");
-        fprintf(stderr, "创建监听失败，server退出\n");
+        write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "客户端创建连接失败");
+        fprintf(stderr, "客户端创建连接失败\n");
         fflush(stderr);
-        exit(1);
     } else {
         char buf[128];
-        sprintf(buf, "创建监听成功,服务器套接字为:%d", fd);
+        sprintf(buf, "客户端创建连接创建监听成功,套接字为:%d", fd);
         write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, buf);
     }
     evutil_make_socket_nonblocking(fd);
@@ -527,7 +548,7 @@ server_config_package *init_server_config (const char *json_path) {
  */
 void event_init_listener (struct evconnlistener *listener, struct event_base *base, struct sockaddr_in serv) {
 
-    listener = evconnlistener_new_bind(base, listener_init, base,
+    listener = evconnlistener_new_bind(base, connect_init, base,
                                        LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
                                        36, (struct sockaddr *) &serv, sizeof(serv));
     if (listener != NULL) {
@@ -537,7 +558,7 @@ void event_init_listener (struct evconnlistener *listener, struct event_base *ba
          * 启动配置文件中选定的备用端口
          */
         serv.sin_port = htons(p->al_port);
-        listener = evconnlistener_new_bind(base, listener_init, base,
+        listener = evconnlistener_new_bind(base, connect_init, base,
                                            LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
                                            36, (struct sockaddr *) &serv, sizeof(serv));
         if (listener != NULL) {
