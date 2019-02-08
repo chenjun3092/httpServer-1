@@ -13,11 +13,10 @@ markdown_prg *prg = NULL;
 extern struct head_nodelist list;
 extern bool TOC;
 
-//todo 与容量有关的数据结构都应该改为动态构造的
 void init_paragraph () {
     prg = malloc(sizeof(struct markdown_paragraph));
     prg->line_sum = 0;
-    memset(prg->stces, '\0', sizeof(prg->stces));
+    /**memset(prg->stces, '\0', sizeof(prg->stces));*/
 }
 
 void push_sentence (md_stce stce) {
@@ -134,7 +133,8 @@ char *produce_foot (char *str) {
     char *tstr = malloc(96 * sizeof(char));
     memset(tstr, '\0', strlen(tstr));
     strcpy(buf, "<ul class=\"list-group\">");
-    strcpy(buf + strlen(buf), "<a href=\"#\" class=\"list-group-item active\"><h4 class=\"list-group-item-heading\">");
+    strcpy(buf + strlen(buf),
+           "<a href=\"#\" class=\"list-group-item active\"><h4 class=\"list-group-item-heading\">");
     int i = 0;
     int j = 0;
     char c;

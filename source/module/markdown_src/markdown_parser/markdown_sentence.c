@@ -55,20 +55,20 @@ void process_sentence_ (int read, md_stce *stce, char *tmp_path) {
     }
     fclose(f);
 }
-
+FILE *out_md;
 void process_sentence (char *path, char *tmp_path) {
     char *line = malloc(sizeof(char) * 512);
     char *m_line = line;
     size_t len = 0;
     ssize_t read;
     FILE *input_md = fopen(path, "r");
-    FILE *out_md;
     md_stce st;
     int r1, r2;
     while (true) {
         r1 = r2 = -1;
         memset(line, '\0', strlen(line));
         if ((read = getline(&line, &len, input_md)) == -1) {
+            fclose(out_md);
             break;
         }
         char buf[1024] = {0};
@@ -137,7 +137,6 @@ void process_sentence (char *path, char *tmp_path) {
                 line[l - 1] = '\0';
             fwrite(line, strlen(line), 1, out_md);
             fflush(out_md);
-            fclose(out_md);
             //todo
             init_stce(&st);
             process_sentence_(read, &st, tmp_path);

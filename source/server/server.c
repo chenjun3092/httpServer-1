@@ -125,7 +125,7 @@ void send_directory (struct bufferevent *bev, const char *dirname) {
     /**拼接成目录头*/
     sprintf(buf, DIR_NAME, dirname);
     sprintf(buf + strlen(buf), DIR_CUR_NAME, dirname);
-    struct dirent **ptr;
+    struct dirent **ptr = NULL;
     /**以字母序排列dirname目录中的文件和子目录*/
     int num = scandir(dirname, &ptr, NULL, alphasort);
     if (num <= 0) {
@@ -157,14 +157,17 @@ void send_directory (struct bufferevent *bev, const char *dirname) {
                         enstr, name, (long) st.st_size);
             }
             bufferevent_write(bev, buf, strlen(buf));
-            memset(buf, 0, sizeof(buf));
             free(ptr[i]);
+            memset(buf, 0, sizeof(buf));
+
         }
         /**发送由子目录和普通文件元素构成的html表格*/
         sprintf(buf + strlen(buf), END_TABLE);
         bufferevent_write(bev, buf, strlen(buf));
     }
-    struct dirent *dirbuf;
+    if (ptr != NULL) {
+        free(ptr);
+    }
 }
 
 /**
@@ -482,11 +485,18 @@ void write_cb (struct bufferevent *bev, void *arg) {
 }
 
 void event_cb (struct bufferevent *bev, short events, void *arg) {
+    evutil_socket_t fd = *((int *) arg);
+    char error_buf[36] = {0};
     if (events & BEV_EVENT_EOF) {
-        //todo
+        sprintf(error_buf, "套接字:%d 退出了连接\n", fd);
+        write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, error_buf);
     } else if (events & BEV_EVENT_ERROR) {
-        //todo
+        sprintf(error_buf, "套接字:%d 连接产生错误\n", fd);
+        printf("%s\n", error_buf);
+        fflush(stdout);
+        write_log(ALERT_L, getpid(), __FUNCTION__, __LINE__, error_buf);
     }
+    free((int *) arg);
     bufferevent_free(bev);
 }
 
@@ -517,7 +527,9 @@ void connect_init (
         write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, buf);
     }
     evutil_make_socket_nonblocking(fd);
-    bufferevent_setcb(bev, read_cb, write_cb, event_cb, NULL);
+    int *fd_ = malloc(sizeof(int));
+    *fd_ = fd;
+    bufferevent_setcb(bev, read_cb, write_cb, event_cb, fd_);
     bufferevent_enable(bev, EV_READ);
     /**设置超时时间*/
     struct timeval r = {20, 0};
@@ -538,7 +550,35 @@ server_config_package *init_server_config (const char *json_path) {
     } else {
         /*创建线程池(最小线程个数，最大线程个数，最大工作队列长度) */
         package->pool = threadpool_create(5, 40, 40);
+        package->base = NULL;
+        package->listener = NULL;
         return package;
+    }
+}
+
+/**
+ * 在服务器退出时，对libevent相应的资源进行回收
+ * @param sig
+ */
+void signal_handler (int sig) {
+    switch (sig) {
+        case SIGTERM:
+        case SIGHUP:
+        case SIGQUIT:
+        case SIGINT: {
+            struct event_base *base = p->base;
+            struct evconnlistener *listener = p->listener;
+            if (base != NULL && listener != NULL) {
+                /*释放listener资源*/
+                event_base_loopexit(base, NULL);
+                evconnlistener_free(listener);
+                event_base_free(base);
+            }
+            exit(0);
+            break;
+        }
+        default:
+            break;
     }
 }
 
@@ -554,6 +594,8 @@ void event_init_listener (struct evconnlistener *listener, struct event_base *ba
                                        LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
                                        36, (struct sockaddr *) &serv, sizeof(serv));
     if (listener != NULL) {
+        p->listener = listener;
+        p->base = base;
         write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "绑定服务器端口成功");
     } else {
         /**
@@ -564,6 +606,8 @@ void event_init_listener (struct evconnlistener *listener, struct event_base *ba
                                            LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
                                            36, (struct sockaddr *) &serv, sizeof(serv));
         if (listener != NULL) {
+            p->listener = listener;
+            p->base = base;
             write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "备用服务器端口启动成功");
         } else {
             write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "备用服务器端口启动失败");
@@ -573,7 +617,11 @@ void event_init_listener (struct evconnlistener *listener, struct event_base *ba
 
         }
     }
-    evconnlistener_set_error_cb(listener, accept_error_cb);
+    /*设置信号处理函数*/
+    signal(SIGHUP, signal_handler);
+    signal(SIGTERM, signal_handler);
+    signal(SIGINT, signal_handler);
+    signal(SIGQUIT, signal_handler);
     /**启动libevent的事件循环*/
     event_base_dispatch(base);
 }
@@ -588,25 +636,6 @@ struct sockaddr_in init_serv () {
     return serv;
 }
 
-static void
-accept_error_cb (struct evconnlistener *listener, void *ctx) {
-    struct event_base *base = evconnlistener_get_base(listener);
-    int err = EVUTIL_SOCKET_ERROR();
-    char error_buf[128];
-    /**当服务器因为超量的请求而产生宕机时候，对服务器进行重启*/
-    sprintf(error_buf, "%d (%s) on the listener. "
-                       "Shutting down.\n", err, evutil_socket_error_to_string(err));
-    write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, error_buf);
-    do {
-        /**释放原先服务器的资源,并尝试重启*/
-        event_base_loopexit(base, NULL);
-        evconnlistener_free(listener);
-        event_base_free(base);
-        write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, "服务器重启");
-        socket_serv_process();
-    } while (0);
-
-}
 
 /**
  * 服务器监听套接字的初始化工作
@@ -619,10 +648,7 @@ void socket_serv_process () {
     struct evconnlistener *listener;
     serv = init_serv();
     event_init_listener(listener, base, serv);
-    /*释放libevent资源*/
-    event_base_loopexit(base, NULL);
-    evconnlistener_free(listener);
-    event_base_free(base);
+
 }
 
 /**

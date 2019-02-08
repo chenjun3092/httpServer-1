@@ -4,6 +4,8 @@
 #include "threadpool.h"
 
 typedef struct server_config_package {
+    struct evconnlistener *listener;
+    struct event_base *base;
     int listen_port;
     const char *error_page;
     const char *map_path;

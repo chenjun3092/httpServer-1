@@ -12,10 +12,12 @@ server_config_package *parse_json (const char *json_path) {
     if (fp == NULL) {
         return NULL;
     }
-    char buf[1024] = {0};
-    fread(buf, 1, sizeof(buf), fp);
+    char *buf = malloc(4096 * sizeof(char));
+    memset(buf, '\0', 4096);
+    fread(buf, 1, 4096, fp);
     server_config_package *p = malloc(sizeof(server_config_package));
     cJSON *root = cJSON_Parse(buf);
+    cJSON *tmp = root;
 
     cJSON *subobj = cJSON_GetObjectItem(root, "server");
     // 判断对象是否存在
@@ -123,9 +125,7 @@ server_config_package *parse_json (const char *json_path) {
             exit(1);
         }
     }
-    if (!root) {
-        cJSON_Delete(root);
-    }
+    free(buf);
     fclose(fp);
 
     return p;
