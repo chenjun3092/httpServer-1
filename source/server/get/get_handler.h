@@ -5,8 +5,8 @@ typedef struct getfunc {
     void *func;
 } get_function;
 
-char *login (void *arg);
+char *login (char *session_id, void *arg);
 
-char *sign_in (void *arg);
+char *sign_in (char *session_id, void *arg);
 
 #endif //HTTPD_GET_HANDLER_H

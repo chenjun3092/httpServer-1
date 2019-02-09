@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <server.h>
 #include <memory.h>
-#include "tool.h"
+#include "http_util.h"
 #include "cJSON.h"
 
 
@@ -44,6 +44,5 @@ char *sign_in (void *arg) {
     }
 }
 
-post_func post_func_array[] = {{"/login", login},
-                               {"/reg",   sign_in},
-                               {NULL, NULL}};
+post_func post_func_array[] = {
+        {NULL, NULL}};

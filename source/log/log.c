@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <fcntl.h>
-#include "tool.h"
+#include "mtime.h"
 #include <stdlib.h>
 #include <string.h>
 

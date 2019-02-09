@@ -17,7 +17,12 @@
 #include <event2/thread.h>
 #include <signal.h>
 #include "get/get_handler.h"
+#include "http_util.h"
+#include "http_component/cookie.h"
 #include "../module/markdown_src/markdown_parser/markdown_parser.h"
+#include "list.h"
+#include "./http_component/session.h"
+
 
 /*服务器全局配置*/
 server_config_package *p = NULL;
@@ -220,6 +225,7 @@ int select_server () {
     return rand() % p->s_num;
 }
 
+
 /**
  *
  * @param bev
@@ -254,6 +260,76 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
     char error_buf[512] = {0};
     char page[512];
     char *host;
+    /**没有经过处理的session*/
+    char pre_session[512] = {0};
+    /**获取cookie*/
+    char *session_id = NULL;
+    char *cookie = get_headval(&request_head, request, "Cookie");
+    if (cookie != NULL) {
+        session_id = get_cookie(cookie, "uid");
+        if (!session_id) {
+            session_id = malloc(sizeof(char) * 128);
+            set_cookie(session_id, "uid", NULL);
+            char *t = session_id;
+            int i = 0;
+            while (*t != '=') {
+                t++;
+            }
+            t++;
+            while (*t != ';') {
+                pre_session[i++] = *t;
+                t++;
+            }
+            strcpy(resp.cookie, session_id);
+            /**首次为一个session设置相关联的数据结构*/
+            session *s = malloc(sizeof(session));
+            s->session_id = rand_num();
+            map_init(&s->parameters);
+            map_set(&p->sessions, pre_session, s);
+        } else {
+            strcpy(pre_session, session_id);
+            struct session **ss = (struct session **) (map_get(&p->sessions, pre_session));
+            if (!ss) {
+                session *s = malloc(sizeof(session));
+                s->session_id = rand_num();
+                map_init(&s->parameters);
+                map_set(&p->sessions, pre_session, s);
+            }
+            strcpy(session_id + strlen(session_id), "; path=/; ");
+            strcpy(resp.cookie, session_id);
+        }
+    }
+    /** 处理get方法的参数 ?ie=utf-8&f=8 */
+    char *paramters = strchr(path, '?');
+    if (paramters != NULL) {
+        *paramters = '\0';
+        paramters++;
+        int i;
+        int j;
+        struct session *s;
+        while (true) {
+            char key[16] = {0};
+            char *value = malloc(256);
+            memset(key, '\0', 16);
+            memset(value, '\0', 256);
+            i = j = 0;
+            while (*paramters != '=') {
+                key[i++] = *paramters++;
+            }
+            paramters++;
+            while (*paramters != '&' && *paramters != '\0') {
+                value[j++] = *paramters++;
+            }
+            s = *(struct session **) map_get(&p->sessions, pre_session);
+            set_parameter(s, key, value);
+            map_set(&p->sessions, pre_session, s);
+            if (*paramters == '\0') {
+                break;
+            }
+            paramters++;
+        }
+
+    }
     /**
     * 获取请求头中的 Host:
     */
@@ -264,8 +340,8 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
         if (!gfunc.func) {
             break;
         } else if (!strcmp(gfunc.func_name, path)) {
-            char *(*func) (void *) =  gfunc.func;
-            res = func(request);
+            char *(*func) (char *, void *) =  gfunc.func;
+            res = func(pre_session, request);
             strcpy(resp.desc, OK);
             resp.no = 200;
             resp.len = strlen(res);
@@ -283,8 +359,8 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
         fflush(stderr);
         exit(1);
     }
-    /**获取cookie*/
-    char *cookie = get_headval(&request_head, request, "Cookie");
+
+
     strcpy(host + strlen(host), "/");
     decode_str(path, path);
     /**client 在服务器上实际访问的位置*/
@@ -393,6 +469,7 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
         }
     } while (0);
     /**释放动态申请的资源*/
+    free(session_id);
     const char *key;
     map_iter_t iter = map_iter(&m);
     while ((key = map_next(&request_head, &iter))) {
@@ -573,12 +650,27 @@ void signal_handler (int sig) {
                 event_base_loopexit(base, NULL);
                 evconnlistener_free(listener);
                 event_base_free(base);
+                const char *key = NULL;
+                map_iter_t iter = map_iter(&p->sessions);
+                while ((key = map_next(&p->sessions, &iter))) {
+                    struct session *s = *map_get(&p->sessions, key);
+                    const char *key_ = NULL;
+                    iter = map_iter(&s->parameters);
+                    while ((key_ = map_next(&s->parameters, &iter))) {
+                        char *v = *map_get(&s->parameters, key_);
+                        if (v != NULL)
+                            free(v);
+                    }
+                    free(s);
+                }
+                map_deinit(&p->sessions);
+                free(p);
+                p = NULL;
             }
             exit(0);
-            break;
         }
         default:
-            break;
+            exit(0);
     }
 }
 
@@ -668,6 +760,7 @@ void server_init (const char *json_path) {
         fflush(stderr);
         exit(1);
     }
+    map_init(&p->sessions);
     write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "初始化服务器成功");
     int ret = chdir(p->map_path);
     if (ret) {

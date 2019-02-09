@@ -1,11 +1,13 @@
 #ifndef HTTPSERV_INIT_CONFIG_H
 #define HTTPSERV_INIT_CONFIG_H
 
+#include <map.h>
 #include "threadpool.h"
 
 typedef struct server_config_package {
     struct evconnlistener *listener;
     struct event_base *base;
+    map_void_t sessions;
     int listen_port;
     const char *error_page;
     const char *map_path;

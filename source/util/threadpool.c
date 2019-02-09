@@ -133,7 +133,7 @@ int threadpool_add (threadpool_t *pool, void *(*function) (void *arg), void *arg
 
     /* 清空 工作线程 调用的回调函数 的参数arg */
     if (pool->task_queue[pool->queue_rear].arg != NULL) {
-        if(pool->task_queue[pool->queue_rear].arg!=NULL){
+        if (pool->task_queue[pool->queue_rear].arg != NULL) {
             free(pool->task_queue[pool->queue_rear].arg);
         }
         pool->task_queue[pool->queue_rear].arg = NULL;
