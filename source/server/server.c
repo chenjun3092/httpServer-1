@@ -265,6 +265,7 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
     /**获取cookie*/
     char *session_id = NULL;
     char *cookie = get_headval(&request_head, request, "Cookie");
+    int is_get_func = 0;
     if (cookie != NULL) {
         session_id = get_cookie(cookie, "uid");
         if (!session_id) {
@@ -349,86 +350,112 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
             send_respond_head(bev, resp);
             bufferevent_write(bev, res, (size_t) resp.len);
             free(res);
-            return;
+            is_get_func = 1;
         }
     }
-    host = get_headval(&request_head, request, "Host");
-    if (!host) {
-        write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "请求头解析错误");
-        fprintf(stderr, "请求头解析错误\n");
-        fflush(stderr);
-        exit(1);
-    }
-
-
-    strcpy(host + strlen(host), "/");
-    decode_str(path, path);
-    /**client 在服务器上实际访问的位置*/
-    char *file = path + 1;
-    if (!strcmp(path, "/")) {
-        /**访问的位置为首页*/
-        sprintf(file, p->static_path, p->index_html);
-    } else if (p->redirect_site[0] != NULL && p->redirect_path[0] != NULL) {
-        /**
-         * 判断当前的请求是否是需要转发的http request 路径
-         */
-        size_t len_r;
-        int i;
-        for (i = 0; i < p->r_num; ++i) {
-            len_r = strlen(p->redirect_path[i]);
-            if (!strncmp(p->redirect_path[i], path, len_r)) {
-                char redirect_path[128] = {0};
-                /**重定向到tomcat运行的端口*/
-                sprintf(redirect_path, "%s/%s", p->redirect_site[i], file);
-                sprintf(error_buf, "%s %s", redirect_path, "产生了302重定向");
-                write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
-
-                strcpy(resp.type, "text/html; charset=utf-8");
-                resp.len = -1;
-                strcpy(resp.host, redirect_path);
-                resp.no = 302;
-                strcpy(resp.desc, "Moved Permanently");
-                send_respond_head(bev, resp);
-            }
+    if(!is_get_func){
+        host = get_headval(&request_head, request, "Host");
+        if (!host) {
+            write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "请求头解析错误");
+            fprintf(stderr, "请求头解析错误\n");
+            fflush(stderr);
+            exit(1);
         }
-    }
-    do {
-        int is_bloading = 0;
-        int i;
-        for (i = 0; i < p->d_len; ++i) {
-            /**是否是负载均衡的路径*/
-            if (!strcasecmp(path, p->dynamic_file[i])) {
-                char *host_ = NULL;
-                host_ = findiport(host, 0);
-                *host_ = '\0';
-                host_ = host;
-                /*用随机的方法选择当前提供服务的服务器*/
-                int n = 0;
-                if (p->load_balancing) {
-                    n = select_server();
+
+
+        strcpy(host + strlen(host), "/");
+        decode_str(path, path);
+        /**client 在服务器上实际访问的位置*/
+        char *file = path + 1;
+        if (!strcmp(path, "/")) {
+            /**访问的位置为首页*/
+            sprintf(file, p->static_path, p->index_html);
+        } else if (p->redirect_site[0] != NULL && p->redirect_path[0] != NULL) {
+            /**
+             * 判断当前的请求是否是需要转发的http request 路径
+             */
+            size_t len_r;
+            int i;
+            for (i = 0; i < p->r_num; ++i) {
+                len_r = strlen(p->redirect_path[i]);
+                if (!strncmp(p->redirect_path[i], path, len_r)) {
+                    char redirect_path[128] = {0};
+                    /**重定向到tomcat运行的端口*/
+                    sprintf(redirect_path, "%s/%s", p->redirect_site[i], file);
+                    sprintf(error_buf, "%s %s", redirect_path, "产生了302重定向");
+                    write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
+
+                    strcpy(resp.type, "text/html; charset=utf-8");
+                    resp.len = -1;
+                    strcpy(resp.host, redirect_path);
+                    resp.no = 302;
+                    strcpy(resp.desc, "Moved Permanently");
+                    send_respond_head(bev, resp);
                 }
-                is_bloading = 1;
-                /**将请求转发到负载均衡服务器*/
-                sprintf(host, "%s:%d%s", host_, p->load_servers[n], path);
-                sprintf(error_buf, "%s %s", host, "产生了301重定向");
-                write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
-                resp.no = 301;
-                strcpy(resp.desc, "Moved Permanently");
-                strcpy(resp.host, host);
-                resp.len = -1;
-                strcpy(resp.type, "text/html");
-                send_respond_head(bev, resp);
             }
         }
-        if (!is_bloading) {
-            struct stat st;
-            int ret = stat(file, &st);
-            char *dot;
-            if (ret == -1) {
-                strcpy(page, file);
-                sprintf(file, p->static_path, page);
-                /**判断当前访问的文件是否位于static目录下(一般用于重要的静态页面)*/
-                if (!stat(file, &st)) {
+        do {
+            int is_bloading = 0;
+            int i;
+            for (i = 0; i < p->d_len; ++i) {
+                /**是否是负载均衡的路径*/
+                if (!strcasecmp(path, p->dynamic_file[i])) {
+                    char *host_ = NULL;
+                    host_ = findiport(host, 0);
+                    *host_ = '\0';
+                    host_ = host;
+                    /*用随机的方法选择当前提供服务的服务器*/
+                    int n = 0;
+                    if (p->load_balancing) {
+                        n = select_server();
+                    }
+                    is_bloading = 1;
+                    /**将请求转发到负载均衡服务器*/
+                    sprintf(host, "%s:%d%s", host_, p->load_servers[n], path);
+                    sprintf(error_buf, "%s %s", host, "产生了301重定向");
+                    write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
+                    resp.no = 301;
+                    strcpy(resp.desc, "Moved Permanently");
+                    strcpy(resp.host, host);
+                    resp.len = -1;
+                    strcpy(resp.type, "text/html");
+                    send_respond_head(bev, resp);
+                }
+            }
+            if (!is_bloading) {
+                struct stat st;
+                int ret = stat(file, &st);
+                char *dot;
+                if (ret == -1) {
+                    strcpy(page, file);
+                    sprintf(file, p->static_path, page);
+                    /**判断当前访问的文件是否位于static目录下(一般用于重要的静态页面)*/
+                    if (!stat(file, &st)) {
+                        strcpy(resp.desc, OK);
+                        resp.no = 200;
+                        strcpy(resp.type, get_file_type(file));
+                        dot = strchr(file, '.');
+                        if (dot && !strcmp(dot, ".md")) {
+                            do_parser(file);
+                            strcpy(dot, ".html");
+                        }
+                        stat(file, &st);
+                        resp.len = st.st_size;
+                        send_filedir(bev, file, host, st, resp);
+                    } else {
+                        /**当前文件不存在且不是任何转发路径*/
+                        memset(error_buf, '\0', strlen(error_buf));
+                        sprintf(error_buf, "%s %s", file, "发生404错误");
+                        write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
+                        resp.no = 404;
+                        resp.len = -1;
+                        strcpy(resp.desc, "Not Found");
+                        strcpy(resp.type, "text/html; charset=utf-8");
+                        send_respond_head(bev, resp);
+                        send_404file(bev);
+                    }
+                } else {
+                    /*访问公开目录下的文件*/
                     strcpy(resp.desc, OK);
                     resp.no = 200;
                     strcpy(resp.type, get_file_type(file));
@@ -440,34 +467,12 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
                     stat(file, &st);
                     resp.len = st.st_size;
                     send_filedir(bev, file, host, st, resp);
-                } else {
-                    /**当前文件不存在且不是任何转发路径*/
-                    memset(error_buf, '\0', strlen(error_buf));
-                    sprintf(error_buf, "%s %s", file, "发生404错误");
-                    write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, error_buf);
-                    resp.no = 404;
-                    resp.len = -1;
-                    strcpy(resp.desc, "Not Found");
-                    strcpy(resp.type, "text/html; charset=utf-8");
-                    send_respond_head(bev, resp);
-                    send_404file(bev);
                 }
-            } else {
-                /*访问公开目录下的文件*/
-                strcpy(resp.desc, OK);
-                resp.no = 200;
-                strcpy(resp.type, get_file_type(file));
-                dot = strchr(file, '.');
-                if (dot && !strcmp(dot, ".md")) {
-                    do_parser(file);
-                    strcpy(dot, ".html");
-                }
-                stat(file, &st);
-                resp.len = st.st_size;
-                send_filedir(bev, file, host, st, resp);
             }
-        }
-    } while (0);
+        } while (0);
+
+    }
+
     /**释放动态申请的资源*/
     free(session_id);
     const char *key;

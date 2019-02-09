@@ -9,6 +9,7 @@
  * @param head_param 请求头中的键值对的键值
  */
 char *parser_httphead (char *reqhead, char *head_param) {
+    int is_find = 0;
     char *val = malloc(sizeof(char) * 256);
     memset(val, '\0', 256);
     while (*reqhead != '\n') {

@@ -18,6 +18,7 @@ add_executable(httpd
         source/util/threadpool.c
         source/util/tool.c
         source/util/map.c
+        source/util/list.c
         source/server/https/https-common.c
         source/main.c source/server/post/post_handler.c
         source/module/markdown_src/markdown_convert/markdown_tohtml.c
@@ -29,4 +30,4 @@ add_executable(httpd
         source/module/markdown_src/markdown_token/markdown_headnodes.c
         source/module/markdown_src/markdown_convert/markdown_html2pdf.c
         source/module/markdown_src/markdown_convert/markdown_time.c
-        source/module/markdown_src/markdown_translate/markdown_translate.c)
+        source/module/markdown_src/markdown_translate/markdown_translate.c source/server/http_component/cookie.c source/server/http_component/cookie.h source/server/http_util.c source/server/http_util.h source/server/mtime.c source/server/mtime.h source/server/http_component/session.c source/server/http_component/session.h)
