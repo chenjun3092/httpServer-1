@@ -20,7 +20,6 @@
 #include "http_util.h"
 #include "http_component/cookie.h"
 #include "../module/markdown_src/markdown_parser/markdown_parser.h"
-#include "list.h"
 #include "./http_component/session.h"
 
 

@@ -10,12 +10,22 @@
 threadpool_t *pool = NULL;
 int fd = -1;
 
+/**
+ * 写日志的函数(由线程池中的工作线程调用)
+ * @param buf
+ * @return
+ */
 void *write_log_ (void *buf) {
     char *buf1 = (char *) buf;
     write(fd, buf, strlen(buf1));
     return NULL;
 }
-
+/**
+ * 打开日志文件
+ * @param p 线程池指针
+ * @param log_path 日志文件的地址
+ * @return
+ */
 int open_log_fd (threadpool_t *p, const char *log_path) {
 
     if (fd > 0) {
@@ -29,7 +39,7 @@ int open_log_fd (threadpool_t *p, const char *log_path) {
         if (fd < 0) {
             /*
              *  三次尝试打开Log文件
-             * */
+             **/
             try_time++;
             if (try_time >= 3) {
                 return 1;
@@ -40,7 +50,14 @@ int open_log_fd (threadpool_t *p, const char *log_path) {
         return 0;
     }
 }
-
+/**
+ * 根据具体的事件写不同等级的日志
+ * @param level 日志的等级
+ * @param pid 写日志的进程号
+ * @param function 触发写日志的函数
+ * @param line 写日志的位置
+ * @param message 日志的具体消息
+ */
 void write_log (LOG_LEVEL level, pid_t pid, const char *function, int line, const char *message) {
     if (level < 1 || level > 5) {
         return;

@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+/**
+ *
+ * @return cookie所使用的过期时间格式
+ */
 char *get_cookie_time () {
     char *wday[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     char *wmon[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};

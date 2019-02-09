@@ -11,7 +11,7 @@
  * @param arg 传入的参数
  * @return  返回处理的结果，一般为Json格式
  */
-char *login (void *arg) {
+char *post_login (void *arg) {
     if (true) {
         const char *request = (char *) arg;
         char pay_str[1024] = {0};
@@ -32,7 +32,7 @@ char *login (void *arg) {
  * @param arg 传入的参数
  * @return  返回处理的结果，一般为Json格式
  */
-char *sign_in (void *arg) {
+char *post_sign_in (void *arg) {
     if (true) {
         cJSON *response_root = cJSON_CreateObject();
         cJSON_AddStringToObject(response_root, "result", "ok");
@@ -44,5 +44,6 @@ char *sign_in (void *arg) {
     }
 }
 
-post_func post_func_array[] = {
-        {NULL, NULL}};
+post_func post_func_array[] = {{"/login",    post_login},
+                               {"/register", post_sign_in},
+                               {NULL, NULL}};
