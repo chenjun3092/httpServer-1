@@ -37,7 +37,6 @@ server_config_package *parse_json (const char *json_path) {
             exit(1);
         }
 
-
         cJSON *map_path = cJSON_GetObjectItem(subobj, "map_path");
         if (map_path) {
             p->map_path = map_path->valuestring;
@@ -119,7 +118,7 @@ server_config_package *parse_json (const char *json_path) {
         if (p->site_num != p->r_num) {
             fprintf(stderr, "转发规则设置错误\n");
             fflush(stderr);
-            write_log(WARN_L, getpid(), __FUNCTION__, __LINE__, "转发规则与转发的网站数目不同");
+            write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "转发规则与转发的网站数目不同");
             exit(1);
         }
     }

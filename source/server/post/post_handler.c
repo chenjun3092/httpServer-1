@@ -12,19 +12,36 @@
  * @return  返回处理的结果，一般为Json格式
  */
 char *post_login (void *arg) {
-    if (true) {
-        const char *request = (char *) arg;
-        char pay_str[1024] = {0};
-        get_payload(request, pay_str);
-        cJSON *response_root = cJSON_CreateObject();
+    const char *request = (char *) arg;
+    char pay_str[1024] = {0};
+    get_payload(request, pay_str);
+    cJSON *root = cJSON_Parse(pay_str);
+    const char *username = NULL;
+    const char *password = NULL;
+    if (root != NULL) {
+        cJSON *user = cJSON_GetObjectItem(root, "username");
+        if (user)
+            username = user->valuestring;
+        cJSON *pswd = cJSON_GetObjectItem(root, "password");
+        if (pswd)
+            password = pswd->valuestring;
+    }
+    cJSON *response_root = cJSON_CreateObject();
+    if (username && password) {
         cJSON_AddStringToObject(response_root, "result", "ok");
         cJSON_AddStringToObject(response_root, "status", "登录成功");
-        char *response_str = cJSON_Print(response_root);
-        cJSON_Delete(response_root);
-        return response_str;
     } else {
-        return NULL;
+        if (!root) {
+            cJSON_AddStringToObject(response_root, "result", "json格式错误");
+        } else {
+            cJSON_AddStringToObject(response_root, "result", "用户名或密码错误");
+        }
+        cJSON_AddStringToObject(response_root, "status", "登录失败");
     }
+    char *response_str = cJSON_Print(response_root);
+    cJSON_Delete(response_root);
+    cJSON_Delete(root);
+    return response_str;
 }
 
 /**

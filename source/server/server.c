@@ -109,7 +109,7 @@ void send_respond_head (struct bufferevent *bev, struct response_struct resp) {
         /**用于被转发到tomcat的JavaWeb请求*/
         sprintf(buf + strlen(buf), "Location:%s\r\n", resp.host);
     }
-    strcpy(buf + strlen(buf), "Connection: close\r\n");
+    strcpy(buf + strlen(buf), "Connection: keep-alive\r\n");
     strcpy(buf + strlen(buf), "Server: helloServer\r\n");
     if (strlen(resp.cookie)) {
         sprintf(buf + strlen(buf), "Set-Cookie: %s\r\n", resp.cookie);
