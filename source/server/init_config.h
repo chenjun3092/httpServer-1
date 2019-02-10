@@ -8,7 +8,6 @@ typedef struct server_config_package {
     struct evconnlistener *listener;
     struct event_base *base;
     map_void_t sessions;
-    int listen_port;
     const char *error_page;
     const char *map_path;
     const char *index_html;
@@ -18,7 +17,9 @@ typedef struct server_config_package {
     const char *redirect_path[16];//转发的路径
     const char *redirect_site[16];
     threadpool_t *pool;
+    long session_sum;
     int load_servers[16];
+    int listen_port;
     int d_len;
     int s_num;
     int r_num;//需要转发的路径条数

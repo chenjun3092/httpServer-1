@@ -1,29 +1,30 @@
 #include "cookie.h"
-
-
 #include <uuid/uuid.h>
 #include <memory.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "mtime.h"
 
+void create_uuid (char *pre) {
+    uuid_t uu;
+    uuid_generate(uu);
+    memset(pre, '\0', strlen(pre));
+    uuid_unparse(uu, pre);
+    uuid_clear(uu);
+}
+
 /**
  * 设置用户的session id
  * @param cookies  从http请求头中获取的cookie
  * @param h no use
  */
-void set_sid_cookie (char *cookies, char *h) {
+void set_sid_cookie (char *cookie_session, char *h) {
     uuid_t uu;
     uuid_generate(uu);
-    memset(cookies, '\0', 128 * sizeof(char));
-    strcpy(cookies, h);
-    strcpy(cookies + strlen(cookies), "=");
-    for (int i = 0; i < 15; i++) {
-        sprintf(cookies + strlen(cookies), "%02X-", uu[i]);
-    }
-    sprintf(cookies + strlen(cookies), "%02X", uu[15]);
+    strcpy(cookie_session, "uid=");
+    uuid_unparse(uu, cookie_session + strlen(cookie_session));
     /** Expires=Wed, 21 Oct 9999 12:59:59 GMT;*/
-    strcpy(cookies + strlen(cookies), "; path=/; ");
+    strcpy(cookie_session + strlen(cookie_session), "; path=/; ");
     /**
     char *t = get_cookie_time();
     strcpy(cookies + strlen(cookies), "Expires=");
@@ -48,6 +49,7 @@ void set_cookie (char *cookie, char *h, char *value) {
         //todo
     }
 }
+
 /**
  * 获取cookie对应的值
  * @param cookies

@@ -9,4 +9,6 @@ int get_day ();
 
 char *get_cookie_time ();
 
+long get_unix_timestamp ();
+
 #endif //HTTPD_MTIME_H

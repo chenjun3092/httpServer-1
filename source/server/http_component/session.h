@@ -4,7 +4,9 @@
 #include <map.h>
 
 typedef struct session {
+    long time_stamp;
     int session_id;
+    int is_time_out;
     map_str_t parameters;
 } session;
 

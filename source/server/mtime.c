@@ -3,6 +3,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+
+long  get_unix_timestamp(){
+    time_t t;
+    t = time(NULL);
+    return (long)time(&t);
+}
 /**
  *
  * @return cookie所使用的过期时间格式

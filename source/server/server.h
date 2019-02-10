@@ -22,6 +22,8 @@ typedef struct response_struct {
 } response_struct;
 #define END_TABLE "</table></body></html>"
 
+void remove_timeout_session ();
+
 void send_404file (struct bufferevent *bev);
 
 void send_500file (struct bufferevent *bev);

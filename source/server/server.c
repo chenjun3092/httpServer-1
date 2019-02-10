@@ -21,6 +21,7 @@
 #include "http_component/cookie.h"
 #include "../module/markdown_src/markdown_parser/markdown_parser.h"
 #include "./http_component/session.h"
+#include "mtime.h"
 
 
 /*服务器全局配置*/
@@ -284,20 +285,37 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
             /**首次为一个session设置相关联的数据结构*/
             session *s = malloc(sizeof(session));
             s->session_id = rand_num();
+            p->session_sum++;
+            s->time_stamp = get_unix_timestamp();
             map_init(&s->parameters);
             map_set(&p->sessions, pre_session, s);
         } else {
-            strcpy(pre_session, session_id);
-            struct session **ss = (struct session **) (map_get(&p->sessions, pre_session));
+            int i = 0;
+            char *t = session_id;
+            while (*t != '=') {
+                t++;
+            }
+            t++;
+            while (*t != ';' && *t != '\0') {
+                pre_session[i++] = *t;
+                t++;
+            }
+            struct session **ss = (struct session **) map_get(&p->sessions, pre_session);
             if (!ss) {
                 session *s = malloc(sizeof(session));
                 s->session_id = rand_num();
+                p->session_sum++;
+                s->time_stamp = get_unix_timestamp();
                 map_init(&s->parameters);
                 map_set(&p->sessions, pre_session, s);
+            } else {
+                /**更新unix时间戳*/
+                (*ss)->time_stamp = get_unix_timestamp();
             }
             strcpy(session_id + strlen(session_id), "; path=/; ");
             strcpy(resp.cookie, session_id);
         }
+
     }
     /** 处理get方法的参数 ?ie=utf-8&f=8 */
     char *paramters = strchr(path, '?');
@@ -307,11 +325,12 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
         int i;
         int j;
         struct session *s;
+        char *value;
+        char key[16];
         while (true) {
-            char key[16] = {0};
-            char *value = malloc(256);
+            value = malloc(32);
             memset(key, '\0', 16);
-            memset(value, '\0', 256);
+            memset(value, '\0', 32);
             i = j = 0;
             while (*paramters != '=') {
                 key[i++] = *paramters++;
@@ -330,6 +349,8 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
         }
 
     }
+
+
     /**
     * 获取请求头中的 Host:
     */
@@ -352,7 +373,9 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
             is_get_func = 1;
         }
     }
-    if(!is_get_func){
+
+
+    if (!is_get_func) {
         host = get_headval(&request_head, request, "Host");
         if (!host) {
             write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "请求头解析错误");
@@ -528,6 +551,7 @@ void do_http_post_handler (struct bufferevent *bev, char *request, char *path) {
 
 }
 
+
 /**
  * 处理http请求的核心函数
  * @param bev     char *content_type = get_headval(&request_head, request, "Content-Type");
@@ -536,7 +560,6 @@ void do_http_post_handler (struct bufferevent *bev, char *request, char *path) {
 void handle_http_request (struct bufferevent *bev) {
 
     char request[4096] = {0};
-
     bufferevent_read(bev, request, sizeof(request));
     char method[12], path[1024], protocol[12];
     sscanf(request, "%[^ ] %[^ ] %[^ \r\n] ", method, path, protocol);
@@ -551,12 +574,39 @@ void handle_http_request (struct bufferevent *bev) {
 
 }
 
+void remove_timeout_session () {
+    const char *key;
+    map_iter_t iter = map_iter(&p->sessions);
+    while ((key = map_next(&p->sessions, &iter))) {
+        struct session *s = *map_get(&p->sessions, key);
+        /**删除超过30分钟没有活动的session*/
+        long cur_time = get_unix_timestamp();
+        long s_time = s->time_stamp;
+        /**设置30分钟过期时间*/
+        if (cur_time - s_time > 1800) {
+            const char *key_ = NULL;
+            iter = map_iter(&s->parameters);
+            while ((key_ = map_next(&s->parameters, &iter))) {
+                char *v = *map_get(&s->parameters, key_);
+                if (v != NULL) {
+                    free(v);
+                }
+                map_remove(&s->parameters, key_);
+            }
+            map_deinit(&s->parameters);
+            free(s);
+            map_remove(&p->sessions, key);
+        }
+    }
+}
+
 /**
  * 当libevent产生读事件后服务器自定义的请求处理函数
  * @param bev
  * @param arg : no use
  */
 void read_cb (struct bufferevent *bev, void *arg) {
+    remove_timeout_session();
     handle_http_request(bev);
 }
 
@@ -662,10 +712,14 @@ void signal_handler (int sig) {
                     iter = map_iter(&s->parameters);
                     while ((key_ = map_next(&s->parameters, &iter))) {
                         char *v = *map_get(&s->parameters, key_);
-                        if (v != NULL)
+                        if (v != NULL) {
                             free(v);
+                        }
+                        map_remove(&s->parameters, key_);
                     }
+                    map_deinit(&s->parameters);
                     free(s);
+                    map_remove(&p->sessions, key);
                 }
                 map_deinit(&p->sessions);
                 free(p);

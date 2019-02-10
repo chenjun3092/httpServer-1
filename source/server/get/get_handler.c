@@ -29,7 +29,7 @@ char *get_login (char *session_id, void *arg) {
     }
     cJSON *response_root = cJSON_CreateObject();
     if (is_succ) {
-        printf("username: %s password: %s\n", u, p);
+        cJSON_AddStringToObject(response_root, "session_id", sid);
         cJSON_AddStringToObject(response_root, "result", "success");
     } else {
         cJSON_AddStringToObject(response_root, "result", "failed");
