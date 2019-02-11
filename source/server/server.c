@@ -109,7 +109,7 @@ void send_respond_head (struct bufferevent *bev, struct response_struct resp) {
         /**用于被转发到tomcat的JavaWeb请求*/
         sprintf(buf + strlen(buf), "Location:%s\r\n", resp.host);
     }
-    strcpy(buf + strlen(buf), "Connection: keep-alive\r\n");
+    strcpy(buf + strlen(buf), "Connection: close\r\n");
     strcpy(buf + strlen(buf), "Server: helloServer\r\n");
     if (strlen(resp.cookie)) {
         sprintf(buf + strlen(buf), "Set-Cookie: %s\r\n", resp.cookie);
@@ -252,71 +252,15 @@ void send_filedir (struct bufferevent *bev, char *filepath,
  */
 extern get_function get_func_array[];
 
-void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
-    map_str_t request_head;/**用于存储已经经过解析的http请求头*/
-    map_init(&request_head);
+void
+do_http_get_handler (struct bufferevent *bev, char *request, char *path, char *pre_session, char *session_id,
+                     map_str_t *request_head) {
     response_struct resp;
     init_resp(&resp);
     char error_buf[512] = {0};
     char page[512];
     char *host;
-    /**没有经过处理的session*/
-    char pre_session[512] = {0};
-    /**获取cookie*/
-    char *session_id = NULL;
-    char *cookie = get_headval(&request_head, request, "Cookie");
     int is_get_func = 0;
-    if (cookie != NULL) {
-        session_id = get_cookie(cookie, "uid");
-        if (!session_id) {
-            session_id = malloc(sizeof(char) * 128);
-            set_cookie(session_id, "uid", NULL);
-            char *t = session_id;
-            int i = 0;
-            while (*t != '=') {
-                t++;
-            }
-            t++;
-            while (*t != ';') {
-                pre_session[i++] = *t;
-                t++;
-            }
-            strcpy(resp.cookie, session_id);
-            /**首次为一个session设置相关联的数据结构*/
-            session *s = malloc(sizeof(session));
-            s->session_id = rand_num();
-            p->session_sum++;
-            s->time_stamp = get_unix_timestamp();
-            map_init(&s->parameters);
-            map_set(&p->sessions, pre_session, s);
-        } else {
-            int i = 0;
-            char *t = session_id;
-            while (*t != '=') {
-                t++;
-            }
-            t++;
-            while (*t != ';' && *t != '\0') {
-                pre_session[i++] = *t;
-                t++;
-            }
-            struct session **ss = (struct session **) map_get(&p->sessions, pre_session);
-            if (!ss) {
-                session *s = malloc(sizeof(session));
-                s->session_id = rand_num();
-                p->session_sum++;
-                s->time_stamp = get_unix_timestamp();
-                map_init(&s->parameters);
-                map_set(&p->sessions, pre_session, s);
-            } else {
-                /**更新unix时间戳*/
-                (*ss)->time_stamp = get_unix_timestamp();
-            }
-            strcpy(session_id + strlen(session_id), "; path=/; ");
-            strcpy(resp.cookie, session_id);
-        }
-
-    }
     /** 处理get方法的参数 ?ie=utf-8&f=8 */
     char *paramters = strchr(path, '?');
     if (paramters != NULL) {
@@ -349,7 +293,12 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
         }
 
     }
+    /**
+     * 设置会话cookie
+     */
 
+    strcpy(session_id + strlen(session_id), "; path=/; ");
+    strcpy(resp.cookie, session_id);
 
     /**
     * 获取请求头中的 Host:
@@ -376,7 +325,7 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
 
 
     if (!is_get_func) {
-        host = get_headval(&request_head, request, "Host");
+        host = get_headval(request_head, request, "Host");
         if (!host) {
             write_log(EMERGE_L, getpid(), __FUNCTION__, __LINE__, "请求头解析错误");
             fprintf(stderr, "请求头解析错误\n");
@@ -495,15 +444,6 @@ void do_http_get_handler (struct bufferevent *bev, char *request, char *path) {
 
     }
 
-    /**释放动态申请的资源*/
-    free(session_id);
-    const char *key;
-    map_iter_t iter = map_iter(&m);
-    while ((key = map_next(&request_head, &iter))) {
-        char *val_d = *map_get(&request_head, key);
-        free(val_d);
-    }
-    map_deinit(&request_head);
 }
 
 extern post_func post_func_array[];
@@ -514,25 +454,24 @@ extern post_func post_func_array[];
  * @param request http post 请求头
  * @param path  http 请求路径
  */
-void do_http_post_handler (struct bufferevent *bev, char *request, char *path) {
+void do_http_post_handler (struct bufferevent *bev, char *request,
+                           char *path, char *pre_session, char *session_id, map_str_t *request_head) {
     int i;
     post_func p;
     char *res;
     response_struct resp;
     init_resp(&resp);
-    map_str_t request_head;/**用于存储已经经过解析的http请求头*/
-    map_init(&request_head);
-    const char *content_type = get_headval(&request_head, request, "Content-Type");
-
     for (i = 0;; ++i) {
         p = post_func_array[i];
         if (!p.func) {
             return;
         } else if (!strcmp(p.func_name, path)) {
-            char *(*func) (void *) =  p.func;
-            res = func(request);
+            char *(*func) (void *, char *) =  p.func;
+            res = func(request, pre_session);
             strcpy(resp.desc, OK);
             resp.no = 200;
+            strcpy(session_id + strlen(session_id), "; path=/; ");
+            strcpy(resp.cookie, session_id);
             resp.len = strlen(res);
             strcpy(resp.type, "application/json");
             send_respond_head(bev, resp);
@@ -541,14 +480,6 @@ void do_http_post_handler (struct bufferevent *bev, char *request, char *path) {
             break;
         }
     }
-    const char *key;
-    map_iter_t iter = map_iter(&m);
-    while ((key = map_next(&request_head, &iter))) {
-        char *val_d = *map_get(&request_head, key);
-        free(val_d);
-    }
-    map_deinit(&request_head);
-
 }
 
 
@@ -563,14 +494,75 @@ void handle_http_request (struct bufferevent *bev) {
     bufferevent_read(bev, request, sizeof(request));
     char method[12], path[1024], protocol[12];
     sscanf(request, "%[^ ] %[^ ] %[^ \r\n] ", method, path, protocol);
+    char *session_id = NULL;
+    map_str_t request_head;
+    map_init(&request_head);
+    char pre_session[512] = {0};
+    char *cookie = get_headval(&request_head, request, "Cookie");
+    if (cookie != NULL) {
+        session_id = get_cookie(cookie, "uid");
+        if (!session_id) {
+            session_id = malloc(sizeof(char) * 128);
+            set_cookie(session_id, "uid", NULL);
+            char *t = session_id;
+            int i = 0;
+            while (*t != '=') {
+                t++;
+            }
+            t++;
+            while (*t != ';') {
+                pre_session[i++] = *t;
+                t++;
+            }
+            /**首次为一个session设置相关联的数据结构*/
+            session *s = malloc(sizeof(session));
+            s->session_id = rand_num();
+            p->session_sum++;
+            s->time_stamp = get_unix_timestamp();
+            map_init(&s->parameters);
+            map_set(&p->sessions, pre_session, s);
+        } else {
+            int i = 0;
+            char *t = session_id;
+            while (*t != '=') {
+                t++;
+            }
+            t++;
+            while (*t != ';' && *t != '\0') {
+                pre_session[i++] = *t;
+                t++;
+            }
+            struct session **ss = (struct session **) map_get(&p->sessions, pre_session);
+            if (!ss) {
+                session *s = malloc(sizeof(session));
+                s->session_id = rand_num();
+                p->session_sum++;
+                s->time_stamp = get_unix_timestamp();
+                map_init(&s->parameters);
+                map_set(&p->sessions, pre_session, s);
+            } else {
+                /**更新unix时间戳*/
+                (*ss)->time_stamp = get_unix_timestamp();
+            }
+        }
+
+    }
     if (!strcasecmp(method, "GET")) {
-        do_http_get_handler(bev, request, path);
+        do_http_get_handler(bev, request, path, pre_session, session_id, &request_head);
     } else if (!strcasecmp(method, "POST")) {
-        do_http_post_handler(bev, request, path);
+        do_http_post_handler(bev, request, path, pre_session, session_id, &request_head);
     } else {
         //todo 未知的http请求方法
         write_log(INFO_L, getpid(), __FUNCTION__, __LINE__, "未知的http请求方法");
     }
+    free(session_id);
+    const char *key;
+    map_iter_t iter = map_iter(&m);
+    while ((key = map_next(&request_head, &iter))) {
+        char *val_d = *map_get(&request_head, key);
+        free(val_d);
+    }
+    map_deinit(&request_head);
 
 }
 

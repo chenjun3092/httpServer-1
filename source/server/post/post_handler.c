@@ -2,19 +2,24 @@
 #include <stdlib.h>
 #include <server.h>
 #include <memory.h>
+#include <init_config.h>
 #include "http_util.h"
 #include "cJSON.h"
+#include "./http_component/session.h"
 
+
+extern server_config_package *p;
 
 /**
  * 处理http post login请求的函数
  * @param arg 传入的参数
  * @return  返回处理的结果，一般为Json格式
  */
-char *post_login (void *arg) {
+char *post_login (void *arg, char *session_id) {
     const char *request = (char *) arg;
     char pay_str[1024] = {0};
     get_payload(request, pay_str);
+    struct session *s = *((struct session **) (map_get(&p->sessions, session_id)));
     cJSON *root = cJSON_Parse(pay_str);
     const char *username = NULL;
     const char *password = NULL;
@@ -28,6 +33,10 @@ char *post_login (void *arg) {
     }
     cJSON *response_root = cJSON_CreateObject();
     if (username && password) {
+        char *tag = malloc(16);
+        strcpy(tag, "online");
+        map_set(&s->parameters, "status", tag);
+        cJSON_AddStringToObject(response_root, "session_id", session_id);
         cJSON_AddStringToObject(response_root, "result", "ok");
         cJSON_AddStringToObject(response_root, "status", "登录成功");
     } else {
@@ -49,7 +58,7 @@ char *post_login (void *arg) {
  * @param arg 传入的参数
  * @return  返回处理的结果，一般为Json格式
  */
-char *post_sign_in (void *arg) {
+char *post_sign_in (void *arg, char *session_id) {
     if (true) {
         cJSON *response_root = cJSON_CreateObject();
         cJSON_AddStringToObject(response_root, "result", "ok");

@@ -6,8 +6,8 @@ struct post_func {
 };
 typedef struct post_func post_func;
 
-char *post_login (void *arg);
+char *post_login (void *arg, char *session_id);
 
-char *post_sign_in (void *arg);
+char *post_sign_in (void *arg, char *session_id);
 
 #endif //HTTPD_POST_HANDLER_H

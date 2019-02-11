@@ -29,6 +29,10 @@ char *get_login (char *session_id, void *arg) {
     }
     cJSON *response_root = cJSON_CreateObject();
     if (is_succ) {
+        /**设置登录成功的标记*/
+        char *tag = malloc(16);
+        strcpy(tag, "online");
+        map_set(&s->parameters, "status", tag);
         cJSON_AddStringToObject(response_root, "session_id", sid);
         cJSON_AddStringToObject(response_root, "result", "success");
     } else {
