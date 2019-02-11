@@ -576,6 +576,7 @@ void remove_timeout_session () {
         long s_time = s->time_stamp;
         /**设置30分钟过期时间*/
         if (cur_time - s_time > 1800) {
+            write_log(ALERT_L, getpid(), __FUNCTION__, __LINE__, "移除了一个过期session");
             const char *key_ = NULL;
             iter = map_iter(&s->parameters);
             while ((key_ = map_next(&s->parameters, &iter))) {
