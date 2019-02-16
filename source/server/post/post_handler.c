@@ -7,8 +7,10 @@
 #include "http_util.h"
 #include "cJSON.h"
 #include "./http_component/session.h"
-#include "sql_dao/user_pojo.h"
-#include "sql_dao/sql_user.h"
+#include "db_dao/user_pojo.h"
+#include "db_dao/sql_user.h"
+#include "redis_driver.h"
+#include <hiredis/hiredis.h>
 
 extern server_config_package *p;
 
@@ -36,11 +38,12 @@ char *post_login (void *arg, char *session_id) {
             cJSON *pswd = cJSON_GetObjectItem(root, "password");
             if (user && pswd) {
                 username = user->valuestring;
-                password = pswd->valuestring;
+                password = malloc(sizeof(char) * 128);
+                get_md5(pswd->valuestring, password);
                 int res = compare_user_indb(username, password);
                 if (!res) {
-                    char *m = malloc(8);
-                    strcpy(m, "online");
+                    char *m = malloc(6);
+                    strcpy(m, "idle");
                     map_set(&s->parameters, "status", m);
                     cJSON_AddStringToObject(response_root, "result", "ok");
                     cJSON_AddStringToObject(response_root, "session_id", session_id);
@@ -48,6 +51,7 @@ char *post_login (void *arg, char *session_id) {
                     cJSON_AddStringToObject(response_root, "result", "failed");
                     cJSON_AddStringToObject(response_root, "reason", "用户名或密码错误");
                 }
+                free(password);
             } else {
                 cJSON_AddStringToObject(response_root, "result", "failed");
                 cJSON_AddStringToObject(response_root, "reason", "参数个数错误");
@@ -86,7 +90,9 @@ char *post_sign_in (void *arg, char *session_id) {
         if (username && password && phone
             && email && id_card && is_driver) {
             u.id = rand_num();
-            u.paswd = password->valuestring;
+            char *pswd = malloc(sizeof(char) * 128);
+            get_md5(password->valuestring, pswd);
+            u.paswd = pswd;
             u.email = email->valuestring;
             u.is_driver = is_driver->valuestring;
             u.phone = phone->valuestring;
@@ -99,6 +105,7 @@ char *post_sign_in (void *arg, char *session_id) {
                 cJSON_AddStringToObject(response_root, "result", "ok");
                 cJSON_AddStringToObject(response_root, "reason", "注册成功");
             }
+            free(pswd);
         } else {
             /**Android前端一般已经产生过一次参数校验*/
             cJSON_AddStringToObject(response_root, "result", "failed");
@@ -114,6 +121,55 @@ char *post_sign_in (void *arg, char *session_id) {
     return res;
 }
 
+
+/**
+ * 更新乘客当前的位置,更新频率为1s
+ * @param arg
+ * @param session_id
+ * @return
+ */
+char *passenger_idle (void *arg, char *session_id) {
+    const char *request = (char *) arg;
+    char pay_str[1024] = {0};
+    get_payload(request, pay_str);
+    cJSON *root = cJSON_Parse(pay_str);
+    cJSON *latitude = cJSON_GetObjectItem(root, "latitude");
+    cJSON *longitude = cJSON_GetObjectItem(root, "longitude");
+    struct session *s = *((struct session **) (map_get(&p->sessions, session_id)));
+    char *la = strdup(latitude->valuestring);
+    char *lo = strdup(longitude->valuestring);
+    map_set(&s->parameters, "latitude", la);
+    map_set(&s->parameters, "longitude", lo);
+    cJSON *response_root = cJSON_CreateObject();
+    /**在redis中查询周围的司机*/
+    struct driver_locations *locations;
+    /**显示附近距离为5km的司机*/
+    locations = get_driver_locations(la, lo, 5000);
+    if (locations != NULL) {
+        /**获取司机位置成功*/
+        cJSON_AddStringToObject(response_root, "result", "ok");
+        cJSON *drivers = cJSON_CreateArray();
+        cJSON_AddItemToObject(response_root, "drivers", drivers);
+        for (int i = 0; i < (int) locations->len; ++i) {
+            cJSON *d = cJSON_CreateObject();
+            cJSON_AddStringToObject(d, "driver", locations->str[i]);
+            free(locations->str[i]);
+            cJSON_AddItemToArray(drivers, d);
+        }
+        free(locations);
+
+    } else {
+        cJSON_AddStringToObject(response_root, "result", "failed");
+    }
+    char *res = cJSON_Print(response_root);
+    /**返回周围位置的司机*/
+    cJSON_Delete(response_root);
+    cJSON_Delete(root);
+    return res;
+}
+
+
 post_func post_func_array[] = {{"/login",    post_login},
                                {"/register", post_sign_in},
+                               {"/p_idle",   passenger_idle},
                                {NULL, NULL}};

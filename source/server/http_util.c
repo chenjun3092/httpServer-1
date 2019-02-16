@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include "http_util.h"
 
+#include <string.h>
+#include <stdlib.h>
+#include <openssl/md5.h>
+#include <stdio.h>
 
 /**
  *
@@ -116,3 +120,25 @@ void get_payload (const char *request, char *pay_load) {
     }
 }
 
+
+void get_md5 (char *input, char *output) {
+    char password[1024 * 1024 * 5] = {0};
+    MD5_CTX x;
+    int i = 0, len;
+    char *out = NULL;
+    unsigned char d[16];
+    unsigned char tmp[128] = {0};
+    strcpy (password, input);
+    MD5_Init(&x);
+    MD5_Update(&x, (char *) password, strlen(password));
+    MD5_Final(d, &x);
+    out = (char *) malloc(35);
+    memset (out, 0x00, 35);
+    strcpy (out, "$1$");
+    for (i = 0; i < 16; i++) {
+        sprintf(out + (i * 2), "%02X", d[i]);  // 转换为32位
+    }
+    out[32] = 0;
+    strcpy (output, out);
+    free(out);
+}
