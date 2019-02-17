@@ -3,6 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <hiredis/hiredis.h>
+#include "redispool.h"
+
+
+/**redis连接池*/
+redisConnectionPool *redis_pool = NULL;
+
 
 /**
  * 查询司机的位置
@@ -11,10 +17,13 @@
  * @param length
  * @return
  */
+
 struct driver_locations *get_driver_locations (char *cla, char *clo, long length) {
-
-
-    redisContext *c = redisConnect("127.0.0.1", 6379);
+    if (!redis_pool) {
+        struct timeval timeout = {1, 500000};
+        redis_pool = redisCreateConnectionPool(5, rp.host, rp.port, timeout);
+    }
+    redisContext *c = redisGetConnectionFromConnectionPool(redis_pool);
     if (c->err) {
         redisFree(c);
         return NULL;
@@ -38,6 +47,7 @@ struct driver_locations *get_driver_locations (char *cla, char *clo, long length
     }
     freeReplyObject(r);
     free(command1);
+    redisFree(c);
     return locations;
 }
 

@@ -4,7 +4,7 @@
     "dynamic_file": [
       "/examples/servlets/"
     ],
-    "error_page": "/Users/fss/Desktop/hello/www/http/pages/error_page/%s",
+    "error_page": "/Users/fss/serv/httpServer/www/http/pages/error_page/%s",
     "redirect_path": [
       "/xyd/anon",
       "/api/carousel"
@@ -17,13 +17,14 @@
     "index": "hello.html",
     "log_path": "/Users/fss/servlog.log",
     "alternate_port": 10002,
-    "static_page": "/Users/fss/Desktop/hello/www/http/pages/static/%s",
+    "static_page": "/Users/fss/serv/httpServer/www/http/pages/static/%s",
     "load_balancing": 1,
     "load_servers": [
       8080,
       8081,
       8082
-    ]
+    ],
+    "redis": "/Users/fss/serv/httpServer/www/http/properties/redis_config.json"
   }
 }
 

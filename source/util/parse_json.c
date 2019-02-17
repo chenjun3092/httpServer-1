@@ -4,9 +4,37 @@
 #include <stdlib.h>
 #include "parse_json.h"
 #include "log.h"
+#include "post/redis_driver.h"
+
+extern struct redis_server rp;
+
+void parse_redis_config (const char *json_path) {
+    FILE *fp = fopen(json_path, "r");
+    if (!fp) {
+        return;
+    }
+    char buf[4096] = {0};
+    fread(buf, 1, 4096, fp);
+    cJSON *root = cJSON_Parse(buf);
+    cJSON *subobj = cJSON_GetObjectItem(root, "redis");
+    if (subobj) {
+        cJSON *host = cJSON_GetObjectItem(subobj, "host");
+        if (host) {
+            strcpy(rp.host, host->valuestring);
+        }
+        cJSON *port = cJSON_GetObjectItem(subobj, "port");
+        if (port) {
+            rp.port = port->valueint;
+        }
+    }
+
+    cJSON_Delete(root);
+    fclose(fp);
+}
 
 server_config_package *parse_json (const char *json_path) {
     // 加载json文件
+    char *redis_config_path;
     int i;
     FILE *fp = fopen(json_path, "r");
     if (fp == NULL) {
@@ -103,6 +131,10 @@ server_config_package *parse_json (const char *json_path) {
             }
         }
 
+        cJSON *redis_config = cJSON_GetObjectItem(subobj, "redis");
+        if (redis_config != NULL) {
+            redis_config_path = redis_config->valuestring;
+        }
         cJSON *redirect_site = cJSON_GetObjectItem(subobj, "redirect_site");
         if (redirect_site) {
             if (redirect_site->type == cJSON_Array) {
@@ -122,6 +154,7 @@ server_config_package *parse_json (const char *json_path) {
             exit(1);
         }
     }
+    parse_redis_config(redis_config_path);
     fclose(fp);
     free(root);
     return p;

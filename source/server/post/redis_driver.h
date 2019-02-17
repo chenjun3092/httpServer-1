@@ -13,6 +13,13 @@ struct driver_locations {
     size_t len;
 };
 
+struct redis_server {
+    char host[36];
+    int port;
+};
+
+struct redis_server rp;
+
 struct driver_locations *get_driver_locations (char *la, char *lo, long length);
 
 #endif //HTTPD_REDIS_DRIVERLOCATION_H
