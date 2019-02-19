@@ -9,7 +9,7 @@
 #include "./http_component/session.h"
 #include "db_dao/user_pojo.h"
 #include "db_dao/sql_user.h"
-#include "redis_driver.h"
+#include "db_dao/cache/redis_driver.h"
 #include <hiredis/hiredis.h>
 #include <assert.h>
 
@@ -123,10 +123,21 @@ char *post_sign_in (void *arg, char *session_id) {
     cJSON_Delete(root);
     return res;
 }
-
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/**乘客的逻辑*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * 更新乘客当前的位置,更新频率为2s
+ * 更新乘客当前的位置,更新频率为2s 此时的状态为idle(与登录后保持一致,乘客还没有开始打车)
  * @param arg
  * @param session_id
  * @return
@@ -140,23 +151,41 @@ char *passenger_idle (void *arg, char *session_id) {
     cJSON *longitude = cJSON_GetObjectItem(root, "longitude");
     cJSON *address = cJSON_GetObjectItem(root, "address");
     struct session *s = *((struct session **) (map_get(&p->sessions, session_id)));
-    char *la = strdup(latitude->valuestring);
-    char *lo = strdup(longitude->valuestring);
-    char *addr = strdup(address->valuestring);
+    char **la_pre = map_get(&s->parameters, "latitude");
+    char *la;
+    if (la_pre) {
+        free(*la_pre);
+    }
+    la = strdup(latitude->valuestring);
     map_set(&s->parameters, "latitude", la);
+
+    char **lo_pre = map_get(&s->parameters, "longitude");
+    char *lo;
+    if (lo_pre) {
+        free(*lo_pre);
+    }
+    lo = strdup(longitude->valuestring);
     map_set(&s->parameters, "longitude", lo);
-    /**乘客的位置信息可以不进行更新*/
-    map_set(&s->parameters, "address", addr);
+
+    char **addr_pre = map_get(&s->parameters, "addr");
+    char *addr;
+    if (addr_pre) {
+        free(*addr_pre);
+    }
+    addr = strdup(address->valuestring);
+    map_set(&s->parameters, "addr", addr);
+
     cJSON *response_root = cJSON_CreateObject();
     /**在redis中查询周围的司机*/
     struct driver_locations *locations;
-    /**显示附近距离为5km的司机*/
+    /**显示附近距离为10km的司机*/
     locations = get_driver_locations(la, lo, 10000);
     if (locations != NULL) {
         /**获取司机位置成功*/
         cJSON_AddStringToObject(response_root, "result", "ok");
         cJSON *drivers = cJSON_CreateArray();
         cJSON_AddItemToObject(response_root, "drivers", drivers);
+        /**在返回列表中添加司机的信息*/
         for (int i = 0; i < (int) locations->len; ++i) {
             cJSON *d = cJSON_CreateObject();
             cJSON_AddStringToObject(d, "driver", locations->str[i]);
@@ -166,7 +195,6 @@ char *passenger_idle (void *arg, char *session_id) {
         free(locations);
     } else {
         cJSON_AddStringToObject(response_root, "result", "failed");
-
     }
     char *res = cJSON_Print(response_root);
     /**返回周围位置的司机*/
@@ -188,6 +216,7 @@ void *passenger_take_car (void *arg, char *session_id) {
     cJSON *response_root = cJSON_CreateObject();
     char **str = map_get(&params, "status");
     char pay_str[1024] = {0};
+    /**解析http数据中post请求信息*/
     get_payload(request, pay_str);
     cJSON *root = cJSON_Parse(pay_str);
     struct driver_locations *locations;
@@ -201,7 +230,7 @@ void *passenger_take_car (void *arg, char *session_id) {
         char *la_to = strdup(latitude_to->valuestring);
         char *lo_to = strdup(longitude_to->valuestring);
         char *addr_to = strdup(address_to->valuestring);
-        /**标记打车目标的位置*/
+        /**标记乘客打车地点目标的位置*/
         map_set(&s->parameters, "latitude_to", la_to);
         map_set(&s->parameters, "longitude_to", lo_to);
         map_set(&s->parameters, "addr_to", addr_to);
@@ -215,18 +244,30 @@ void *passenger_take_car (void *arg, char *session_id) {
                     cJSON_AddStringToObject(response_root, "result", "ok");
                     for (int i = 0; i < (int) locations->len; ++i) {
                         if (!i) {
+                            /**设置乘客的状态为waiting:即已经被司机接单*/
+                            char *status = *str;
+                            memset(status, '\0', strlen(status));
+                            /**乘客进入waiting状态,即等待被接单以及等待接车的过程*/
+                            strcpy(status, "waiting");
+
+
                             /**返回司机的session id*/
                             cJSON_AddStringToObject(response_root, "driver", locations->str[i]);
                             char *d_session_id = malloc(sizeof(char) * strlen(locations->str[i]));
                             strcpy(d_session_id, locations->str[i]);
                             /**在session中保存司机的session_id*/
                             map_set(&s->parameters, "driver_session", d_session_id);
-                            //todo 需要将司机(driver_session)的状态设置为接单
-                            /**设置乘客的状态为waiting:即已经被司机接单*/
-                            char *status = *str;
-                            memset(status, '\0', strlen(status));
-                            /**乘客进入waiting状态,即等待被接单以及等待接车的过程*/
-                            strcpy(status, "waiting");
+                            //fixme 需要将司机(driver_session)的状态设置为 taking
+                            struct session *driver_session = *((struct session **) (map_get(&p->sessions,
+                                                                                            d_session_id)));
+                            str = map_get(&driver_session->parameters, "status");
+                            status = *str;
+                            /**更改司机当前的状态以及记录当前的目的地和乘客的session_id*/
+                            strcpy(status, "taking");//表示当前司机的动作是前去接乘客
+                            map_set(&driver_session->parameters, "latitude_to", strdup(latitude_to->valuestring));
+                            map_set(&driver_session->parameters, "longitude_to", strdup(longitude_to->valuestring));
+                            map_set(&driver_session->parameters, "addr_to", strdup(address_to->valuestring));
+                            map_set(&driver_session->parameters, "p_session_id", strdup(session_id));
                         }
                         free(locations->str[i]);
                     }
@@ -265,82 +306,210 @@ void *passenger_take_car (void *arg, char *session_id) {
  */
 void *passenger_catched (void *arg, char *session_id) {
     struct session *s = *((struct session **) (map_get(&p->sessions, session_id)));
-    map_str_t params = s->parameters;
     cJSON *response_root = cJSON_CreateObject();
+    cJSON_AddStringToObject(response_root, "status", "ok");
+    char *res = cJSON_Print(response_root);
+    map_str_t params = s->parameters;
+    char **str = map_get(&params, "status");
+    char *status = *str;
+    cJSON_Delete(response_root);
+    return res;
+}
+
+/**
+ * 乘客到达目的地后 由司机调用
+ * @param arg
+ * @param session_id
+ * @return
+ */
+void *passenger_get_point (void *arg, char *session_id) {
+    /**乘客达到目的地之后的 确认应该由司机发出*/
+    /**在session中删除此次打车的信息*/
+    char *res;
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddStringToObject(resp, "status", "ok");
+    struct session *s = *((struct session **) (map_get(&p->sessions, session_id)));
+    map_str_t params = s->parameters;
+    char **str = map_get(&params, "status");
+    char *status = *str;
+    res = cJSON_Print(resp);
+    cJSON_Delete(resp);
+    return res;
+}
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/**司机的逻辑*/
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * 每隔0.5s更新一次司机的当前位置,状态仍然保持为idle
+ * @param arg
+ * @param session_id
+ * @return
+ */
+void *driver_idle (void *arg, char *session_id) {
     const char *request = (char *) arg;
     char pay_str[1024] = {0};
     get_payload(request, pay_str);
-    char **str = map_get(&params, "status");
     cJSON *root = cJSON_Parse(pay_str);
-    cJSON *driver_id_cjson = cJSON_GetObjectItem(root, "driver_id");
-    if (str) {
-        char *driver_id = *map_get(&s->parameters, "driver_session");
-        assert(driver_id_cjson != NULL);
-        char *driver_id_seted = driver_id_cjson->valuestring;
-        if (!strcmp(driver_id, driver_id_seted)) {
-            //todo 已经上车
-            char *status = *str;
-            memset(status, '\0', strlen(status));
-            /**乘客进入taking状态,旅行的过程*/
-            strcpy(status, "taking");
-            cJSON_AddStringToObject(response_root, "result", "ok");
-            cJSON_AddStringToObject(response_root, "status", "taking");
-        } else {
-            cJSON_AddStringToObject(response_root, "result", "failed");
-            cJSON_AddStringToObject(response_root, "reason", "司机session异常");
-        }
-    } else {
-        cJSON_AddStringToObject(response_root, "result", "failed");
-        cJSON_AddStringToObject(response_root, "reason", "未知原因");
+    cJSON *latitude = cJSON_GetObjectItem(root, "latitude");
+    cJSON *longitude = cJSON_GetObjectItem(root, "longitude");
+    cJSON *address = cJSON_GetObjectItem(root, "address");
+    struct session *s = *((struct session **) (map_get(&p->sessions, session_id)));
+
+    /**更新司机的当前位置*/
+    char **la_pre = map_get(&s->parameters, "latitude");
+    char *la;
+    if (la_pre) {
+        free(*la_pre);
     }
-    char *res = cJSON_Print(response_root);
+    la = strdup(latitude->valuestring);
+    map_set(&s->parameters, "latitude", la);
+
+    char **lo_pre = map_get(&s->parameters, "longitude");
+    char *lo;
+    if (lo_pre) {
+        free(*lo_pre);
+    }
+    lo = strdup(longitude->valuestring);
+    map_set(&s->parameters, "longitude", lo);
+
+    char **addr_pre = map_get(&s->parameters, "addr");
+    char *addr;
+    if (addr_pre) {
+        free(*addr_pre);
+    }
+    addr = strdup(address->valuestring);
+    map_set(&s->parameters, "addr", addr);
+
+    /**构造响应头*/
+    cJSON *resp = cJSON_CreateObject();
+    cJSON_AddStringToObject(resp, "result", "ok");
+    char *res = cJSON_Print(resp);
+    cJSON_Delete(resp);
     cJSON_Delete(root);
-    cJSON_Delete(response_root);
     return res;
 }
 
-void *passenger_get_point (void *arg, char *session_id) {
+/**
+ * 司机准备接单,状态更新为ready
+ * @param arg
+ * @param session_id
+ * @return
+ */
+void *driver_ready (void *arg, char *session_id) {
+    const char *request = (char *) arg;
+    cJSON *resp = cJSON_CreateObject();
+
+    char pay_str[1024] = {0};
+    get_payload(request, pay_str);
     struct session *s = *((struct session **) (map_get(&p->sessions, session_id)));
-    map_str_t params = s->parameters;
-    cJSON *response_root = cJSON_CreateObject();
-    char **str = map_get(&params, "status");
+    char **str = map_get(&s->parameters, "status");
     if (str) {
         char *status = *str;
         memset(status, '\0', strlen(status));
-        /**乘客进入idle状态,结束旅行*/
-        strcpy(status, "idle");
-        cJSON_AddStringToObject(response_root, "result", "ok");
-        char *la_to = *map_get(&params, "latitude_to");
-        char *lo_to = *map_get(&params, "longitude_to");
-        char *addr_to = *map_get(&params, "addr_to");
-        char *driver_session = *map_get(&params, "driver_session");
-        cJSON_AddStringToObject(response_root, "已经到达目的地", addr_to);
-        cJSON_AddStringToObject(response_root, "目的地经度", la_to);
-        cJSON_AddStringToObject(response_root, "目的地纬度", lo_to);
-        cJSON_AddStringToObject(response_root, "乘客id", session_id);
-        cJSON_AddStringToObject(response_root, "司机id", driver_session);
-
+        /**司机的状态进入ready ,准备接单的状态*/
+        strcpy(status, "ready");
+        /**得到最多在0.5s前更新的位置*/
+        char *la = *map_get(&s->parameters, "latitude");
+        char *lo = *map_get(&s->parameters, "longitude");
+        /**上传自身的位置*/
+        upload_driver_location(la, lo, session_id);
+        /*当接到单子之后状态改为catching*/
     } else {
-        cJSON_AddStringToObject(response_root, "result", "failed");
-        cJSON_AddStringToObject(response_root, "reason", "订单异常");
+        /**一般情况为司机的状态不对*/
+        cJSON_AddStringToObject(resp, "result", "failed");
     }
-    /**在session中删除此次打车的信息*/
-    const char *key_ = NULL;
-    map_iter_t iter = map_iter(&s->parameters);
-    while ((key_ = map_next(&s->parameters, &iter))) {
-        if (!strcmp(key_, "status")) {
-            continue;
-        }
-        char *v = *map_get(&s->parameters, key_);
-        if (v != NULL) {
-            free(v);
-        }
-        map_remove(&s->parameters, key_);
-    }
-    char *res = cJSON_Print(response_root);
-    cJSON_Delete(response_root);
+    char *res = cJSON_Print(resp);
+    cJSON_Delete(resp);
     return res;
 }
+
+/**
+ * 司机已经在接到乘客后进入驾驶状态
+ * @param arg
+ * @param session_id
+ * @return
+ */
+void *driver_catched (void *arg, char *session_id) {
+    cJSON *resp = cJSON_CreateObject();
+    struct session *s = *((struct session **) (map_get(&p->sessions, session_id)));
+    map_str_t params = s->parameters;
+    char *addr_to = *map_get(&params, "addr_to");
+    char *p_id = *map_get(&params, "p_session_id");
+
+    struct session *passenger_session = *((struct session **) (map_get(&p->sessions, p_id)));
+    map_str_t passenger_params = passenger_session->parameters;
+    //修改乘客的状态
+    char **str = map_get(&passenger_params, "status");
+    char *status = *str;
+    strcpy(status, "traveling");
+
+    cJSON_AddStringToObject(resp, "乘客目的地", addr_to);
+    cJSON_AddStringToObject(resp, "乘客id", p_id);
+
+    /**修改司机的状态*/
+    str = map_get(&params, "status");
+    status = *str;
+    strcpy(status, "driving");
+
+    char *res = cJSON_Print(resp);
+    cJSON_Delete(resp);
+    return res;
+}
+
+// 乘客到达后，司机需要手动设置乘客的下车状态,同时清除自身以及对应乘客对于该订单的信息
+
+/**
+ *
+ * @param arg
+ * @param session_id
+ * @return
+ */
+void *driver_get_point (void *arg, char *session_id) {
+    /**清除司机自身关于该订单的信息*/
+    cJSON *resp = cJSON_CreateObject();
+    struct session *s = *((struct session **) (map_get(&p->sessions, session_id)));
+    char *p_id = *map_get(&s->parameters, "p_session_id");
+    for (int i = 0; i < 2; ++i) {
+        char **str = map_get(&s->parameters, "status");
+        char *status = *str;
+        memset(status, '\0', strlen(status));
+        strcpy(status, "idle");
+        const char *key_ = NULL;
+        map_iter_t iter = map_iter(&s->parameters);
+        while ((key_ = map_next(&s->parameters, &iter))) {
+            if (!strcmp(key_, "status")) {
+                continue;
+            }
+            char *v = *map_get(&s->parameters, key_);
+            if (v != NULL) {
+                free(v);
+            }
+            map_remove(&s->parameters, key_);
+        }
+        /**清除乘客关于该订单的信息*/
+        s = *((struct session **) (map_get(&p->sessions, p_id)));
+    }
+    cJSON_AddStringToObject(resp, "status", "ok");
+    char *res = cJSON_Print(resp);
+    cJSON_Delete(resp);
+
+    //todo 关于记录账单的信息
+    return res;
+}
+
 
 post_func post_func_array[] = {{"/login",     post_login},
                                {"/register",  post_sign_in},
@@ -348,4 +517,8 @@ post_func post_func_array[] = {{"/login",     post_login},
                                {"/p_take",    passenger_take_car},
                                {"/p_catched", passenger_catched},
                                {"/p_get",     passenger_get_point},
+                               {"/d_idle",    driver_idle},
+                               {"/d_ready",   driver_ready},
+                               {"/d_catched", driver_catched},
+                               {"/d_get",     driver_get_point},
                                {NULL, NULL}};

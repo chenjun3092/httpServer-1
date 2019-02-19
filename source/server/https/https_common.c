@@ -1,9 +1,6 @@
-
-/* (c)  Oblong Industries */
-
 #include <signal.h>
 
-#include "https-common.h"
+#include "https_common.h"
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>

@@ -20,6 +20,8 @@ struct redis_server {
 
 struct redis_server rp;
 
+void upload_driver_location (char *cla, char *clo, char *addr_name);
+
 struct driver_locations *get_driver_locations (char *la, char *lo, long length);
 
 #endif //HTTPD_REDIS_DRIVERLOCATION_H

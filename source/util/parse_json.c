@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include "parse_json.h"
 #include "log.h"
-#include "post/redis_driver.h"
+#include "db_dao/cache/redis_driver.h"
 
 extern struct redis_server rp;
 
