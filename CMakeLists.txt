@@ -6,9 +6,9 @@ set(CMAKE_C_STANDARD 11)
 include_directories(source/log)
 include_directories(source/server)
 include_directories(source/util)
-LINK_LIBRARIES(event event_pthreads)
+LINK_LIBRARIES(event event_pthreads hiredis)
 link_directories(/usr/local/lib)
-LINK_LIBRARIES(curl ssl crypto event_openssl)
+LINK_LIBRARIES(curl ssl crypto event_openssl mysqlclient)
 add_executable(httpd
         source/server/get/get_handler.c
         source/log/log.c
@@ -18,8 +18,7 @@ add_executable(httpd
         source/util/threadpool.c
         source/util/tool.c
         source/util/map.c
-        source/util/list.c
-        source/server/https/https-common.c
+        source/server/https/https_common.c
         source/main.c source/server/post/post_handler.c
         source/module/markdown_src/markdown_convert/markdown_tohtml.c
         source/module/markdown_src/markdown_parser/markdown_paragraph.c
@@ -30,4 +29,9 @@ add_executable(httpd
         source/module/markdown_src/markdown_token/markdown_headnodes.c
         source/module/markdown_src/markdown_convert/markdown_html2pdf.c
         source/module/markdown_src/markdown_convert/markdown_time.c
-        source/module/markdown_src/markdown_translate/markdown_translate.c source/server/http_component/cookie.c source/server/http_component/cookie.h source/server/http_util.c source/server/http_util.h source/server/mtime.c source/server/mtime.h source/server/http_component/session.c source/server/http_component/session.h)
+        source/server/db_dao/sql_user.c
+        source/module/markdown_src/markdown_translate/markdown_translate.c
+        source/server/http_component/cookie.c source/server/http_component/cookie.h
+        source/server/http_util.c source/server/http_util.h
+        source/server/mtime.c source/server/mtime.h source/server/http_component/session.c
+        source/server/http_component/session.h source/server/db_dao/cache/redis_driver.c source/server/post/redis_pool.c)

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "user_pojo.h"
-
+#include "sql_user.h"
 MYSQL *create_conn () {
     MYSQL *conn = NULL;
     conn = mysql_init(NULL);
@@ -12,9 +12,35 @@ MYSQL *create_conn () {
     return conn;
 }
 
+char *query_is_driver (char *u_name) {
+    MYSQL *conn = create_conn();
+    if (!conn) {
+        return NULL;
+    }
+    MYSQL_STMT *stmt = mysql_stmt_init(conn);
+    char *query = "select driver from tc_user where u_name = ? ;";
+    char *is_driver = malloc(sizeof(char) * 8);
+    if (mysql_stmt_prepare(stmt, query, strlen(query))) {
+        return NULL;
+    }
+    MYSQL_BIND params[1];
+    params[0].buffer_type = MYSQL_TYPE_STRING;
+    params[0].buffer = u_name;
+    params[0].buffer_length = 8;
+
+    mysql_stmt_bind_param(stmt, params);
+    mysql_stmt_execute(stmt);
+    mysql_stmt_store_result(stmt);
+
+    /**关闭连接*/
+    mysql_stmt_close(stmt);
+    mysql_close(conn);
+    return is_driver;
+}
+
 int insert_user_todb (struct user *u) {
     MYSQL *conn = create_conn();
-    if (conn == NULL) {
+    if (!conn) {
         return 1;
     }
     MYSQL_STMT *stmt = mysql_stmt_init(conn);
